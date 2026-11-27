@@ -1,0 +1,24 @@
+/** Inline stroke icons (24×24), drawn for this app. */
+const P = (d: string, extra = '') => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
+
+export const icons = {
+  pencil: P('<path d="M4 20l1.2-4.6L15.5 5.1a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/><path d="M13.8 6.8l3.4 3.4"/><path d="M4 20l4.6-1.2"/><circle cx="5.3" cy="18.7" r=".6" fill="currentColor"/>'),
+  marker: P('<path d="M7 17l-2 4 4-2"/><path d="M7.6 16.4l-1-1 9.6-9.6a2.3 2.3 0 0 1 3.2 3.2L9.8 18.6z"/><path d="M14.4 7.6l2 2"/>'),
+  eraser: P('<path d="M8.5 20H20"/><path d="M4.6 15.4l9.9-9.9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8.2z"/><path d="M9 11l4.5 4.5"/>'),
+  drop: P('<path d="M12 3.5s-6 6.6-6 10.6a6 6 0 0 0 12 0c0-4-6-10.6-6-10.6z"/><path d="M9.2 14.6a2.9 2.9 0 0 0 2.6 2.6"/>'),
+  picker: P('<path d="M14.6 4.6a2.4 2.4 0 0 1 3.4 0l1.4 1.4a2.4 2.4 0 0 1 0 3.4l-1.6 1.6-4.8-4.8z"/><path d="M13.4 7.8L5 16.2V19h2.8l8.4-8.4"/>'),
+  bulb: P('<path d="M9 17.5h6"/><path d="M10 20.5h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2v.2h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>'),
+  undo: P('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+  redo: P('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'),
+  layers: P('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'),
+  inside: P('<path d="M7 4.5c-2 1-3.2 3.5-2.6 6.4.7 3.6 3.6 7.6 7.6 8.6 4.3 1 7.2-2.1 7.4-5.6.3-4.4-3-9.6-8-10.1-1.6-.2-3.2.1-4.4.7z"/><path d="M8.5 12.5c1.2-1.6 3.1-2.6 6-2.4" stroke-dasharray="1.6 2.2"/>'),
+  fit: P('<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>'),
+  size: P('<circle cx="7" cy="12" r="2"/><circle cx="16" cy="12" r="4.5"/>'),
+  grip: P('<circle cx="9" cy="6" r="1" fill="currentColor"/><circle cx="15" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="18" r="1" fill="currentColor"/><circle cx="15" cy="18" r="1" fill="currentColor"/>'),
+  solution: P('<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M12 4v16"/><path d="M15 9l1.5 1.5L19 8"/>'),
+  book: P('<path d="M3 5.5C5.5 4.5 8.5 4.5 12 6.5c3.5-2 6.5-2 9-1v13c-2.5-1-5.5-1-9 1-3.5-2-6.5-2-9-1z"/><path d="M12 6.5v13"/>'),
+  brush: P('<path d="M14 4.5l5.5 5.5-7.8 7.8a2 2 0 0 1-2.8 0L6.2 15a2 2 0 0 1 0-2.8z"/><path d="M6.2 15L3.5 20.5 9 17.8"/>'),
+  back: P('<path d="M9 5l7 7-7 7"/>'),
+  next: P('<path d="M9 5l7 7-7 7"/>'),
+  prev: P('<path d="M15 5l-7 7 7 7"/>'),
+};

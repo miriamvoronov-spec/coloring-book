@@ -1,0 +1,559 @@
+/**
+ * One coloring page on screen: paper, colour layer, live stroke layer, line
+ * art (multiply) and numbers, with pinch zoom up to 8×, pen pressure/tilt,
+ * palm rejection, "inside the lines" clipping, lamp highlight and undo.
+ */
+import { History, type Patch } from '../app/history';
+import { binarize, labelRegions, legendLabelFor, regionAt, regionMask, regionsForLabel, autoSolution, rgbToHex, type RegionMap, type Rect } from '../app/raster';
+import { store } from '../app/store';
+import type { PageRec } from '../app/types';
+import { drawSegment, type StrokePoint, type ToolName } from './brushes';
+
+export interface ToolState {
+  tool: ToolName;
+  color: string;
+  size: number;
+  opacity: number;
+  inside: boolean;
+}
+
+export interface EngineEvents {
+  onHistory?: () => void;
+  onSwipe?: (dir: 1 | -1) => void;
+  /** A pen touched the page while coloring is off. Return true to start coloring. */
+  onPenWhileReading?: () => boolean;
+  onPick?: (hex: string | null) => void;
+  onZoom?: (zoom: number) => void;
+}
+
+interface Ptr { id: number; type: string; x: number; y: number; sx: number; sy: number; t0: number }
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const MAX_ZOOM = 8;
+
+export class PageEngine {
+  readonly el: HTMLDivElement;
+  private stage: HTMLDivElement;
+  private color: HTMLCanvasElement;
+  private cctx: CanvasRenderingContext2D;
+  private stroke: HTMLCanvasElement;
+  private sctx: CanvasRenderingContext2D;
+  private lines: HTMLImageElement;
+  private numbers: SVGSVGElement;
+  private lamp: HTMLCanvasElement;
+  private linesUrl: string;
+  readonly W: number;
+  readonly H: number;
+  readonly history: History<ImageData>;
+  map: RegionMap | null = null;
+  ready: Promise<void>;
+  drawEnabled = false;
+  private penSeen = false;
+  private ptrs = new Map<number, Ptr>();
+  private mode: 'idle' | 'draw' | 'gesture' | 'pan' | 'swipe' = 'idle';
+  private drawPtr = -1;
+  private last: StrokePoint | null = null;
+  private strokeBox: Rect | null = null;
+  private strokeTool: ToolName = 'pencil';
+  private clip: { canvas: HTMLCanvasElement; rect: Rect } | null = null;
+  private maskCache = new Map<number, { canvas: HTMLCanvasElement; rect: Rect }>();
+  private gesture = { s0: 1, tx0: 0, ty0: 0, cx: 0, cy: 0, d: 1, t0: 0, moved: 0, count: 0 };
+  private s = 1; private tx = 0; private ty = 0; private fit = 1;
+  private saveTimer = 0;
+  private dirty = false;
+  private ro: ResizeObserver;
+  lampValue: string | null = null;
+
+  constructor(readonly page: PageRec, private tools: () => ToolState, private ev: EngineEvents = {}) {
+    this.W = page.width; this.H = page.height;
+    const mk = <K extends keyof HTMLElementTagNameMap>(t: K, c: string) => { const e = document.createElement(t); e.className = c; return e; };
+    this.el = mk('div', 'pv') as HTMLDivElement;
+    this.stage = mk('div', 'pv__stage') as HTMLDivElement;
+    this.stage.style.width = this.W + 'px';
+    this.stage.style.height = this.H + 'px';
+    const paper = mk('div', 'pv__paper');
+    this.color = mk('canvas', 'pv__color') as HTMLCanvasElement;
+    this.stroke = mk('canvas', 'pv__stroke') as HTMLCanvasElement;
+    for (const c of [this.color, this.stroke]) { c.width = this.W; c.height = this.H; }
+    this.cctx = this.color.getContext('2d', { willReadFrequently: true })!;
+    this.sctx = this.stroke.getContext('2d')!;
+    this.lines = mk('img', 'pv__lines') as HTMLImageElement;
+    this.lines.alt = '';
+    this.lines.draggable = false;
+    this.linesUrl = URL.createObjectURL(page.image);
+    this.lines.src = this.linesUrl;
+    this.numbers = document.createElementNS(SVG_NS, 'svg');
+    this.numbers.setAttribute('class', 'pv__numbers');
+    this.numbers.setAttribute('viewBox', `0 0 ${this.W} ${this.H}`);
+    this.lamp = mk('canvas', 'pv__lamp') as HTMLCanvasElement;
+    this.lamp.width = Math.round(this.W / 2); this.lamp.height = Math.round(this.H / 2);
+    this.lamp.hidden = true;
+    this.stage.append(paper, this.color, this.stroke, this.lines, this.lamp, this.numbers);
+    this.el.append(this.stage);
+    this.renderNumbers();
+
+    this.history = new History<ImageData>({
+      read: (x, y, w, h) => this.cctx.getImageData(x, y, w, h),
+      write: (p: Patch<ImageData>) => { this.cctx.putImageData(p.data, p.x, p.y); this.scheduleSave(); },
+    }, 60);
+
+    this.bindInput();
+    this.ro = new ResizeObserver(() => this.layout());
+    this.ro.observe(this.el);
+    this.ready = this.load();
+  }
+
+  private async load() {
+    await this.lines.decode().catch(() => undefined);
+    const paint = await store.paint(this.page.id);
+    if (paint) {
+      try {
+        const bmp = await createImageBitmap(paint.color);
+        this.cctx.drawImage(bmp, 0, 0, this.W, this.H);
+        bmp.close();
+      } catch { /* start blank */ }
+    }
+    // region map for "inside the lines" and the lamp, computed after first paint
+    setTimeout(() => this.buildRegions(), 30);
+  }
+
+  private buildRegions() {
+    if (!this.lines.naturalWidth) return;
+    const c = document.createElement('canvas');
+    c.width = this.W; c.height = this.H;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(this.lines, 0, 0, this.W, this.H);
+    const d = x.getImageData(0, 0, this.W, this.H).data;
+    this.map = labelRegions(binarize(d, this.W, this.H), this.W, this.H);
+    c.width = 0;
+  }
+
+  // ----- numbers layer -----
+  renderNumbers(): void {
+    this.numbers.replaceChildren();
+    const lit = this.lampValue;
+    for (const l of this.page.labels) {
+      const show = !this.page.numbersInImage || (lit !== null && l.value === lit);
+      if (!show) continue;
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', String(l.x)); t.setAttribute('y', String(l.y));
+      const isLit = lit !== null && l.value === lit;
+      const size = isLit ? l.size * 1.7 : l.size;
+      t.setAttribute('font-size', String(size));
+      t.setAttribute('stroke-width', String(size * 0.22));
+      t.setAttribute('class', 'num' + (isLit ? ' num--lit' : '') + (l.uncertain ? ' num--unsure' : ''));
+      t.style.transformOrigin = `${l.x}px ${l.y}px`;
+      t.textContent = l.value;
+      this.numbers.append(t);
+    }
+  }
+
+  set numbersVisible(v: boolean) { this.numbers.style.visibility = v ? '' : 'hidden'; }
+
+  // ----- view -----
+  layout(): void {
+    const r = this.el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const prevFit = this.fit;
+    this.fit = Math.min(r.width / this.W, r.height / this.H);
+    if (Math.abs(this.s - prevFit) < 1e-6 || this.s < this.fit) this.s = this.fit;
+    this.clampView();
+    this.apply();
+  }
+
+  get zoom(): number { return this.s / this.fit; }
+
+  resetView(): void { this.s = this.fit; this.clampView(); this.apply(); }
+
+  zoomAt(factor: number, cx: number, cy: number): void {
+    const ns = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.s * factor));
+    const px = (cx - this.tx) / this.s, py = (cy - this.ty) / this.s;
+    this.s = ns; this.tx = cx - px * ns; this.ty = cy - py * ns;
+    this.clampView(); this.apply();
+  }
+
+  private clampView() {
+    const r = this.el.getBoundingClientRect();
+    const w = this.W * this.s, h = this.H * this.s;
+    this.tx = w <= r.width ? (r.width - w) / 2 : Math.min(0, Math.max(r.width - w, this.tx));
+    this.ty = h <= r.height ? (r.height - h) / 2 : Math.min(0, Math.max(r.height - h, this.ty));
+  }
+
+  private apply() {
+    this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.s})`;
+    this.ev.onZoom?.(this.zoom);
+  }
+
+  private toPage(e: PointerEvent): { x: number; y: number } {
+    const r = this.el.getBoundingClientRect();
+    return { x: (e.clientX - r.left - this.tx) / this.s, y: (e.clientY - r.top - this.ty) / this.s };
+  }
+
+  private local(e: { clientX: number; clientY: number }) {
+    const r = this.el.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  // ----- input -----
+  private bindInput() {
+    const el = this.el;
+    el.addEventListener('pointerdown', (e) => this.down(e));
+    el.addEventListener('pointermove', (e) => this.move(e));
+    el.addEventListener('pointerup', (e) => this.up(e));
+    el.addEventListener('pointercancel', (e) => this.up(e, true));
+    el.addEventListener('lostpointercapture', (e) => { if (this.ptrs.has(e.pointerId)) this.up(e, true); });
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    el.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const p = this.local(e);
+      this.zoomAt(Math.exp(-e.deltaY * 0.0022), p.x, p.y);
+    }, { passive: false });
+  }
+
+  private isEraserButton(e: PointerEvent) {
+    return e.pointerType === 'pen' && ((e.buttons & 32) !== 0 || (e.buttons & 2) !== 0 || e.button === 5 || e.button === 2);
+  }
+
+  private canDraw(e: PointerEvent): boolean {
+    if (e.pointerType === 'pen') return true;
+    if (e.pointerType === 'mouse') return e.button === 0;
+    // touch draws only on devices where no pen has been seen (palm rejection)
+    return !this.penSeen;
+  }
+
+  private down(e: PointerEvent) {
+    if (e.pointerType === 'pen') this.penSeen = true;
+    const p = this.local(e);
+    // a touch while the pen is drawing is a palm: ignore it
+    if (e.pointerType === 'touch' && this.mode === 'draw' && this.ptrs.get(this.drawPtr)?.type === 'pen') return;
+    this.ptrs.set(e.pointerId, { id: e.pointerId, type: e.pointerType, x: p.x, y: p.y, sx: p.x, sy: p.y, t0: performance.now() });
+    try { this.el.setPointerCapture(e.pointerId); } catch { /* ok */ }
+    const touches = [...this.ptrs.values()].filter((q) => q.type === 'touch');
+
+    if (e.pointerType === 'pen' && !this.drawEnabled) {
+      if (!this.ev.onPenWhileReading?.()) return;
+    }
+
+    if (touches.length >= 2) {
+      if (this.mode === 'draw' && this.ptrs.get(this.drawPtr)?.type === 'touch') this.cancelStroke();
+      this.startGesture();
+      return;
+    }
+    if (this.mode !== 'idle') return;
+
+    if (this.drawEnabled && this.canDraw(e)) {
+      if (this.tools().tool === 'picker') { this.pick(e); return; }
+      this.startStroke(e);
+      return;
+    }
+    if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
+      this.mode = this.drawEnabled || this.zoom > 1.01 ? 'pan' : 'swipe';
+      this.gesture.tx0 = this.tx; this.gesture.ty0 = this.ty;
+    }
+  }
+
+  private move(e: PointerEvent) {
+    const ptr = this.ptrs.get(e.pointerId);
+    if (!ptr) return;
+    const p = this.local(e);
+    ptr.x = p.x; ptr.y = p.y;
+    if (this.mode === 'draw' && e.pointerId === this.drawPtr) {
+      const evs = e.getCoalescedEvents?.() ?? [e];
+      for (const ce of evs.length ? evs : [e]) this.extendStroke(ce);
+      return;
+    }
+    if (this.mode === 'gesture') { this.updateGesture(); return; }
+    if (this.mode === 'pan') {
+      this.tx = this.gesture.tx0 + (ptr.x - ptr.sx);
+      this.ty = this.gesture.ty0 + (ptr.y - ptr.sy);
+      this.clampView(); this.apply();
+    }
+  }
+
+  private up(e: PointerEvent, cancelled = false) {
+    const ptr = this.ptrs.get(e.pointerId);
+    if (!ptr) return;
+    this.ptrs.delete(e.pointerId);
+    if (this.mode === 'draw' && e.pointerId === this.drawPtr) {
+      if (cancelled) this.cancelStroke(); else this.commitStroke();
+      this.mode = 'idle';
+      return;
+    }
+    if (this.mode === 'gesture') {
+      if (this.ptrs.size === 0) {
+        const quick = performance.now() - this.gesture.t0 < 300 && this.gesture.moved < 14 && this.gesture.count === 2;
+        if (quick && !cancelled) { this.undo(); }
+        this.mode = 'idle';
+      } else if ([...this.ptrs.values()].filter((q) => q.type === 'touch').length < 2) {
+        // one finger left: keep panning from where it is
+        const rest = [...this.ptrs.values()][0];
+        rest.sx = rest.x; rest.sy = rest.y;
+        this.gesture.tx0 = this.tx; this.gesture.ty0 = this.ty;
+        this.mode = 'pan';
+        this.gesture.moved = 99;
+      }
+      return;
+    }
+    if (this.mode === 'swipe' && !cancelled) {
+      const dx = ptr.x - ptr.sx, dy = ptr.y - ptr.sy, dt = performance.now() - ptr.t0;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 900) this.ev.onSwipe?.(dx < 0 ? 1 : -1);
+    }
+    if (this.ptrs.size === 0) this.mode = 'idle';
+  }
+
+  private startGesture() {
+    const [a, b] = [...this.ptrs.values()].filter((q) => q.type === 'touch');
+    const first = this.mode !== 'gesture';
+    this.mode = 'gesture';
+    this.gesture.s0 = this.s; this.gesture.tx0 = this.tx; this.gesture.ty0 = this.ty;
+    this.gesture.cx = (a.x + b.x) / 2; this.gesture.cy = (a.y + b.y) / 2;
+    this.gesture.d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    if (first) { this.gesture.t0 = performance.now(); this.gesture.moved = 0; this.gesture.count = 2; }
+    else this.gesture.count = 3;
+  }
+
+  private updateGesture() {
+    const ts = [...this.ptrs.values()].filter((q) => q.type === 'touch');
+    if (ts.length < 2) return;
+    const [a, b] = ts;
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    this.gesture.moved = Math.max(this.gesture.moved, Math.hypot(cx - this.gesture.cx, cy - this.gesture.cy), Math.abs(d - this.gesture.d));
+    const ns = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.gesture.s0 * (d / this.gesture.d)));
+    const px = (this.gesture.cx - this.gesture.tx0) / this.gesture.s0, py = (this.gesture.cy - this.gesture.ty0) / this.gesture.s0;
+    this.s = ns; this.tx = cx - px * ns; this.ty = cy - py * ns;
+    this.clampView(); this.apply();
+  }
+
+  // ----- strokes -----
+  private diameter(): number { return this.tools().size * (Math.max(this.W, this.H) / 1000); }
+
+  private pt(e: PointerEvent): StrokePoint {
+    const { x, y } = this.toPage(e);
+    const p = e.pointerType === 'pen' ? Math.max(0.05, e.pressure || 0.05) : e.pointerType === 'touch' && e.pressure > 0 && e.pressure !== 0.5 ? e.pressure : 0.6;
+    const tilt = e.pointerType === 'pen' ? Math.min(1, Math.hypot(e.tiltX || 0, e.tiltY || 0) / 70) : 0;
+    return { x, y, p, tilt };
+  }
+
+  private startStroke(e: PointerEvent) {
+    const t = this.tools();
+    this.strokeTool = this.isEraserButton(e) ? 'eraser' : t.tool;
+    this.mode = 'draw';
+    this.drawPtr = e.pointerId;
+    this.stroke.style.opacity = this.strokeTool === 'eraser' ? '1' : String(t.opacity);
+    this.clip = null;
+    if (t.inside && this.strokeTool !== 'eraser' && this.map) {
+      const { x, y } = this.toPage(e);
+      const id = regionAt(this.map, x, y, 8);
+      if (id) this.clip = this.maskFor(id);
+    }
+    const p = this.pt(e);
+    this.last = p;
+    this.strokeBox = null;
+    this.paint(p, p, true);
+  }
+
+  private extendStroke(e: PointerEvent) {
+    if (!this.last) return;
+    const p = this.pt(e);
+    if (Math.hypot(p.x - this.last.x, p.y - this.last.y) < 0.6) return;
+    this.paint(this.last, p, false);
+    this.last = p;
+  }
+
+  private paint(a: StrokePoint, b: StrokePoint, first: boolean) {
+    const t = this.tools();
+    const r = drawSegment(this.sctx, { tool: this.strokeTool, color: t.color, diameter: this.diameter() }, a, b, first);
+    const x = Math.max(0, Math.floor(r.x)), y = Math.max(0, Math.floor(r.y));
+    const dirty = { x, y, w: Math.min(this.W, Math.ceil(r.x + r.w)) - x, h: Math.min(this.H, Math.ceil(r.y + r.h)) - y };
+    if (dirty.w <= 0 || dirty.h <= 0) return;
+    if (this.clip) {
+      const c = this.sctx;
+      c.save();
+      c.beginPath(); c.rect(dirty.x, dirty.y, dirty.w, dirty.h); c.clip();
+      c.globalCompositeOperation = 'destination-in';
+      c.drawImage(this.clip.canvas, this.clip.rect.x, this.clip.rect.y);
+      c.restore();
+    }
+    this.strokeBox = this.strokeBox ? union(this.strokeBox, dirty) : dirty;
+  }
+
+  private cancelStroke() {
+    if (this.strokeBox) { const b = this.strokeBox; this.sctx.clearRect(b.x, b.y, b.w, b.h); }
+    this.strokeBox = null; this.last = null; this.mode = 'idle'; this.drawPtr = -1;
+  }
+
+  private commitStroke() {
+    const b = this.strokeBox;
+    this.last = null; this.drawPtr = -1;
+    if (!b) return;
+    const before = this.cctx.getImageData(b.x, b.y, b.w, b.h);
+    this.history.push({ x: b.x, y: b.y, w: b.w, h: b.h, data: before });
+    const c = this.cctx;
+    c.save();
+    if (this.strokeTool === 'eraser') c.globalCompositeOperation = 'destination-out';
+    else c.globalAlpha = this.tools().opacity;
+    c.drawImage(this.stroke, b.x, b.y, b.w, b.h, b.x, b.y, b.w, b.h);
+    c.restore();
+    this.sctx.clearRect(b.x, b.y, b.w, b.h);
+    this.strokeBox = null;
+    this.scheduleSave();
+    this.ev.onHistory?.();
+  }
+
+  private maskFor(id: number): { canvas: HTMLCanvasElement; rect: Rect } {
+    const hit = this.maskCache.get(id);
+    if (hit) return hit;
+    const m = regionMask(this.map!, [id], 3);
+    const canvas = maskCanvas(m.alpha, m.rect.w, m.rect.h);
+    const out = { canvas, rect: m.rect };
+    if (this.maskCache.size > 24) this.maskCache.clear();
+    this.maskCache.set(id, out);
+    return out;
+  }
+
+  // ----- eyedropper -----
+  private pick(e: PointerEvent) {
+    const { x, y } = this.toPage(e);
+    const xi = Math.round(x), yi = Math.round(y);
+    if (xi < 0 || yi < 0 || xi >= this.W || yi >= this.H) { this.ev.onPick?.(null); return; }
+    const d = this.cctx.getImageData(Math.max(0, xi - 2), Math.max(0, yi - 2), 5, 5).data;
+    let r = 0, g = 0, b = 0, a = 0;
+    for (let i = 0; i < d.length; i += 4) { const w = d[i + 3] / 255; r += d[i] * w; g += d[i + 1] * w; b += d[i + 2] * w; a += w; }
+    this.ev.onPick?.(a < 0.5 ? null : rgbToHex(r / a, g / a, b / a));
+  }
+
+  // ----- undo -----
+  undo(): void { if (this.history.undo()) this.ev.onHistory?.(); }
+  redo(): void { if (this.history.redo()) this.ev.onHistory?.(); }
+
+  // ----- lamp -----
+  /** Highlight every region of the number that belongs to `hex`. Returns the label, or a reason it can't. */
+  setLamp(hex: string | null): { ok: true; value: string } | { ok: false; reason: 'off' | 'no-legend' | 'no-match' | 'not-ready' } {
+    if (!hex) { this.lampValue = null; this.lamp.hidden = true; this.el.classList.remove('pv--lamp'); this.renderNumbers(); return { ok: false, reason: 'off' }; }
+    if (!this.page.legend.length || !this.page.labels.length) return { ok: false, reason: 'no-legend' };
+    if (!this.map) return { ok: false, reason: 'not-ready' };
+    const value = legendLabelFor(this.page.legend, hex);
+    if (value === null) return { ok: false, reason: 'no-match' };
+    this.lampValue = value;
+    const ids = regionsForLabel(this.map, this.page.labels, value);
+    const m = regionMask(this.map, ids, 3);
+    const lc = this.lamp.getContext('2d')!;
+    const k = this.lamp.width / this.W;
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.clearRect(0, 0, this.lamp.width, this.lamp.height);
+    lc.fillStyle = 'rgba(28, 14, 4, 0.55)';
+    lc.fillRect(0, 0, this.lamp.width, this.lamp.height);
+    if (m.rect.w) {
+      const mc = maskCanvas(m.alpha, m.rect.w, m.rect.h);
+      const gold = document.createElement('canvas');
+      gold.width = mc.width; gold.height = mc.height;
+      const g = gold.getContext('2d')!;
+      g.drawImage(mc, 0, 0);
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = '#ffd35a'; g.fillRect(0, 0, gold.width, gold.height);
+      lc.save();
+      lc.scale(k, k);
+      lc.filter = `blur(${Math.max(4, 14 * k)}px)`;
+      for (let i = 0; i < 3; i++) lc.drawImage(gold, m.rect.x, m.rect.y);
+      lc.filter = 'none';
+      lc.globalCompositeOperation = 'destination-out';
+      lc.drawImage(mc, m.rect.x, m.rect.y);
+      lc.restore();
+      mc.width = 0; gold.width = 0;
+    }
+    this.lamp.hidden = false;
+    this.el.classList.add('pv--lamp');
+    this.renderNumbers();
+    return { ok: true, value };
+  }
+
+  // ----- outputs -----
+  /** Flattened picture of the page (paper + colour + lines + numbers), for the page-flip and the solution slider. */
+  snapshot(maxSide = 1400): HTMLCanvasElement {
+    const k = Math.min(1, maxSide / Math.max(this.W, this.H));
+    const c = document.createElement('canvas');
+    c.width = Math.round(this.W * k); c.height = Math.round(this.H * k);
+    const x = c.getContext('2d')!;
+    x.fillStyle = '#fffdf8'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(this.color, 0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'multiply';
+    if (this.lines.naturalWidth) x.drawImage(this.lines, 0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'source-over';
+    if (!this.page.numbersInImage) drawNumbers(x, this.page.labels, k);
+    return c;
+  }
+
+  /** Automatic solution from the numbers and the legend. */
+  async autoSolution(maxSide = 1400): Promise<HTMLCanvasElement | null> {
+    if (!this.map) this.buildRegions();
+    if (!this.map || !this.page.legend.length || !this.page.labels.length) return null;
+    const px = autoSolution(this.map, this.page.labels, this.page.legend);
+    const full = document.createElement('canvas');
+    full.width = this.W; full.height = this.H;
+    full.getContext('2d')!.putImageData(new ImageData(px as unknown as Uint8ClampedArray<ArrayBuffer>, this.W, this.H), 0, 0);
+    const k = Math.min(1, maxSide / Math.max(this.W, this.H));
+    const c = document.createElement('canvas');
+    c.width = Math.round(this.W * k); c.height = Math.round(this.H * k);
+    const x = c.getContext('2d')!;
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(full, 0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'multiply';
+    if (this.lines.naturalWidth) x.drawImage(this.lines, 0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'source-over';
+    full.width = 0;
+    return c;
+  }
+
+  private scheduleSave() {
+    this.dirty = true;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => void this.save(), 1200);
+  }
+
+  async save(): Promise<void> {
+    if (!this.dirty) return;
+    this.dirty = false;
+    clearTimeout(this.saveTimer);
+    const blob = await new Promise<Blob | null>((r) => this.color.toBlob(r, 'image/png'));
+    if (blob) await store.putPaint({ pageId: this.page.id, color: blob, updatedAt: Date.now() });
+  }
+
+  async destroy(): Promise<void> {
+    await this.save();
+    this.ro.disconnect();
+    URL.revokeObjectURL(this.linesUrl);
+    this.maskCache.clear();
+    this.color.width = 0; this.stroke.width = 0; this.lamp.width = 0;
+    this.el.remove();
+  }
+}
+
+function union(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
+}
+
+function maskCanvas(alpha: Uint8Array, w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w); c.height = Math.max(1, h);
+  const x = c.getContext('2d')!;
+  const img = x.createImageData(c.width, c.height);
+  for (let i = 0; i < alpha.length; i++) { img.data[i * 4 + 3] = alpha[i]; }
+  x.putImageData(img, 0, 0);
+  return c;
+}
+
+export function drawNumbers(x: CanvasRenderingContext2D, labels: PageRec['labels'], k = 1): void {
+  x.save();
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.lineJoin = 'round';
+  for (const l of labels) {
+    const fs = l.size * k;
+    x.font = `700 ${fs}px Fredoka, "Varela Round", sans-serif`;
+    x.lineWidth = fs * 0.22; x.strokeStyle = '#fff'; x.fillStyle = '#1b1410';
+    x.strokeText(l.value, l.x * k, l.y * k);
+    x.fillText(l.value, l.x * k, l.y * k);
+  }
+  x.restore();
+}

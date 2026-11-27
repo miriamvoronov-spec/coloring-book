@@ -1,10 +1,10 @@
-import { registerSW } from 'virtual:pwa-register';
 import './styles/base.css';
-import { showSplash } from './screens/splash';
-
-registerSW({ immediate: true });
+import { initApp, go, whenSeeded } from './app/app';
+import { splashScreen } from './screens/splash';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('#app missing');
 
-showSplash(app);
+initApp(app);
+void whenSeeded();
+go(splashScreen, 'fade');

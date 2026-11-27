@@ -1,0 +1,82 @@
+/** Category cards: open a bookshelf, add, rename, choose an icon. */
+import { addCategory, go } from '../app/app';
+import { store } from '../app/store';
+import type { Category } from '../app/types';
+import { h, onLongPress, sheet, toast } from '../ui/dom';
+import { logoMark } from '../ui/logo';
+import { shelfScreen } from './shelf';
+
+const ICONS = ['✨', '🏰', '🧚', '🦄', '🌸', '🐉', '🌙', '⭐', '🎨', '🍄', '🐚', '🦋', '🌈', '👑', '🪄', '📚'];
+
+function iconPicker(selected: string, onPick: (i: string) => void): HTMLElement {
+  const row = h('div', { class: 'icon-grid', role: 'radiogroup', 'aria-label': 'אייקון' });
+  for (const i of ICONS) {
+    const b = h('button', { class: 'icon-choice' + (i === selected ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(i === selected) }, i);
+    b.addEventListener('click', () => {
+      row.querySelectorAll('.icon-choice').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); });
+      b.classList.add('is-on'); b.setAttribute('aria-checked', 'true'); onPick(i);
+    });
+    row.append(b);
+  }
+  return row;
+}
+
+function editCategory(cat: Category | null, refresh: () => void) {
+  let icon = cat?.icon ?? '⭐';
+  const name = h('input', { class: 'field', id: 'cat-name', value: cat?.name ?? '', placeholder: 'שם הקטגוריה', maxlength: 40 });
+  const body = h('div', { class: 'form' },
+    h('label', { for: 'cat-name' }, 'שם'), name,
+    h('label', {}, 'אייקון'), iconPicker(icon, (i) => { icon = i; }));
+  const actions = h('div', { class: 'form__actions' });
+  const save = h('button', { class: 'btn btn--gold', type: 'button' }, cat ? 'שמירה' : 'הוספה');
+  actions.append(save);
+  if (cat && !cat.role) {
+    const del = h('button', { class: 'btn btn--ghost', type: 'button' }, 'מחיקת הקטגוריה');
+    del.addEventListener('click', async () => {
+      const books = (await store.books()).filter((b) => b.categoryId === cat.id);
+      if (books.length) { toast('יש חוברות בקטגוריה הזאת. העבירי או מחקי אותן קודם.'); return; }
+      await store.deleteCategory(cat.id); close(); refresh();
+    });
+    actions.append(del);
+  }
+  body.append(actions);
+  const close = sheet(cat ? 'עריכת קטגוריה' : 'קטגוריה חדשה', body);
+  save.addEventListener('click', async () => {
+    const n = name.value.trim();
+    if (!n) { toast('כתבי שם לקטגוריה'); return; }
+    if (cat) await store.putCategory({ ...cat, name: n, icon }); else await addCategory(n, icon);
+    close(); refresh();
+  });
+  setTimeout(() => name.focus(), 300);
+}
+
+export function categoriesScreen(el: HTMLElement) {
+  const grid = h('div', { class: 'cat-grid' });
+  el.append(h('main', { class: 'categories' },
+    h('header', { class: 'top' },
+      h('div', { class: 'top__brand', html: logoMark(56) }),
+      h('h1', { class: 'top__title' }, 'הספרייה שלי')),
+    grid,
+    h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
+
+  const render = async () => {
+    const [cats, books] = await Promise.all([store.categories(), store.books()]);
+    grid.replaceChildren();
+    for (const c of cats) {
+      const count = books.filter((b) => b.categoryId === c.id).length;
+      const card = h('button', { class: 'cat-card', type: 'button' },
+        h('span', { class: 'cat-card__icon', 'aria-hidden': 'true' }, c.icon),
+        h('span', { class: 'cat-card__name', dir: 'auto' }, c.name),
+        h('span', { class: 'cat-card__count' }, count === 1 ? 'חוברת אחת' : `${count} חוברות`));
+      card.addEventListener('click', () => go((r) => shelfScreen(r, c), 'forward'));
+      onLongPress(card, () => editCategory(c, render));
+      grid.append(card);
+    }
+    const add = h('button', { class: 'cat-card cat-card--add', type: 'button' },
+      h('span', { class: 'cat-card__icon', 'aria-hidden': 'true' }, '＋'),
+      h('span', { class: 'cat-card__name' }, 'קטגוריה חדשה'));
+    add.addEventListener('click', () => editCategory(null, render));
+    grid.append(add);
+  };
+  void render();
+}
