@@ -39,7 +39,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   const state: ToolState = {
     tool: prefs.get('tool', 'pencil'), color: prefs.get('color', '#ef476f'),
-    size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: prefs.get('inside', false),
+    size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: (prefs.get('inside.v2', false) as boolean),
   };
   if (state.tool === 'picker') state.tool = 'pencil';
   let coloring = false;
@@ -221,8 +221,14 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     surface = null;
     root.classList.add('reader--closing');
     void backId;
-    await closeBookAnimation(book, entries[index]?.kind === 'back');
-    go((r) => shelfScreen(r, cat), 'fade');
+    // put the shelf behind the animation, so the book can fly back to its place
+    go((r) => shelfScreen(r, cat), 'none');
+    await closeBookAnimation(book, entries[index]?.kind === 'back', () => {
+      const el = document.querySelector<HTMLElement>(`.shelf-book[data-id="${book.id}"] .shelf-book__body`);
+      if (!el) return null;
+      el.closest('.shelf-book')?.scrollIntoView({ block: 'nearest' });
+      return el.getBoundingClientRect();
+    });
   }
 
   // ----- chrome -----
@@ -282,7 +288,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     if (surface?.engine) { surface.engine.drawEnabled = on; if (!on) surface.engine.resetView(); }
     if (on && !toolbar) {
       toolbar = new Toolbar({
-        state, changed: () => { prefs.set('tool', state.tool === 'picker' ? 'pencil' : state.tool); prefs.set('size', state.size); prefs.set('eraserSize', state.eraserSize); prefs.set('opacity', state.opacity); prefs.set('inside', state.inside); },
+        state, changed: () => { prefs.set('tool', state.tool === 'picker' ? 'pencil' : state.tool); prefs.set('size', state.size); prefs.set('eraserSize', state.eraserSize); prefs.set('opacity', state.opacity); prefs.set('inside.v2', state.inside); },
         undo: () => surface?.engine?.undo(), redo: () => surface?.engine?.redo(),
         canUndo: () => !!surface?.engine?.history.canUndo, canRedo: () => !!surface?.engine?.history.canRedo,
         lamp: toggleLamp, lampOn: () => lampOn,
@@ -420,6 +426,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
 /** "כל הכבוד!" in hollow balloon letters with balloons, stars and hearts: black outlines on white, to colour freely. */
 async function congratsArt(W: number, H: number): Promise<Blob> {
+  if (prefs.get('congratsStyle', 'elegant') === 'elegant') return congratsElegant(W, H);
   const family = '"Secular One", "Suez One", sans-serif';
   try { await document.fonts.load(`400 300px ${family}`, 'כל הכבוד'); } catch { /* fall back to what is there */ }
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -430,38 +437,54 @@ async function congratsArt(W: number, H: number): Promise<Blob> {
   // frame
   x.lineWidth = 10; x.strokeRect(48, 48, W - 96, H - 96);
   x.lineWidth = 5; x.strokeRect(72, 72, W - 144, H - 144);
-  // balloon letters: a very thick outline, hollowed out with white
-  // balloon letters, one at a time from the right, each with its own black outline so they stay apart
+  // bunting across the top
+  x.beginPath(); x.moveTo(110, 250); x.quadraticCurveTo(W / 2, 400, W - 110, 250); x.lineWidth = 6; x.stroke();
+  const flags = 9;
+  for (let i = 0; i < flags; i++) {
+    const t = (i + 0.5) / flags, fx = (1 - t) * (1 - t) * 110 + 2 * (1 - t) * t * (W / 2) + t * t * (W - 110), fy = (1 - t) * (1 - t) * 250 + 2 * (1 - t) * t * 400 + t * t * 250;
+    outline(() => { x.moveTo(fx - 55, fy - 4); x.lineTo(fx + 55, fy - 4); x.lineTo(fx, fy + 120); x.closePath(); }, 7);
+    if (i % 2) outline(() => x.arc(fx, fy + 38, 14, 0, Math.PI * 2), 5);
+  }
+  // hollow balloon letters, drawn one by one from the right with a clear gap, so every letter is its own shape
   const bubble = (text: string, cx: number, cy: number, size: number) => {
-    x.font = `${size}px ${family}`; x.textAlign = 'left'; x.textBaseline = 'middle'; x.direction = 'ltr';
-    const fat = size * 0.18, gap = size * 0.13;
+    x.font = `${size}px ${family}`; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.direction = 'ltr';
+    const ink = size * 0.07, gap = size * 0.08;
     const chars = [...text];
     const widths = chars.map((ch) => x.measureText(ch).width);
     const total = widths.reduce((a, w) => a + w, 0) + gap * (chars.length - 1);
+    const m = x.measureText('כ'); const base = cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
     let right = cx + total / 2;
     chars.forEach((ch, i) => {
       const left = right - widths[i];
-      x.lineWidth = fat + 16; x.strokeStyle = '#141414'; x.strokeText(ch, left, cy);
-      x.lineWidth = fat; x.strokeStyle = '#fff'; x.strokeText(ch, left, cy);
-      x.fillStyle = '#fff'; x.fillText(ch, left, cy);
+      x.lineWidth = ink + 4; x.strokeStyle = '#141414'; x.strokeText(ch, left, base);
+      x.lineWidth = Math.max(2, ink - 12); x.strokeStyle = '#fff'; x.strokeText(ch, left, base);
+      x.fillStyle = '#fff'; x.fillText(ch, left, base);
       right = left - gap;
     });
     x.strokeStyle = '#141414';
   };
-  bubble('כל', W * 0.5, H * 0.28, 360);
-  bubble('הכבוד!', W * 0.5, H * 0.46, 300);
-  // balloons with strings
+  bubble('כל', W * 0.5, H * 0.3, 340);
+  bubble('הכבוד!', W * 0.5, H * 0.47, 300);
+  // a bunch of balloons tied with one bow
+  const knot = { x: W * 0.5, y: H * 0.86 };
   const balloon = (bx: number, by: number, r: number, tilt: number) => {
+    x.beginPath(); x.moveTo(bx + Math.sin(tilt) * -r * 1.1, by + r * 1.1); x.quadraticCurveTo((bx + knot.x) / 2 + 30, (by + knot.y) / 2, knot.x, knot.y); x.lineWidth = 5; x.stroke();
     x.save(); x.translate(bx, by); x.rotate(tilt);
     outline(() => x.ellipse(0, 0, r * 0.82, r, 0, 0, Math.PI * 2));
     outline(() => { x.moveTo(-r * 0.12, r * 0.98); x.lineTo(r * 0.12, r * 0.98); x.lineTo(0, r * 1.1); x.closePath(); }, 7);
     x.beginPath(); x.ellipse(-r * 0.35, -r * 0.4, r * 0.12, r * 0.22, -0.5, 0, Math.PI * 2); x.lineWidth = 6; x.stroke();
-    x.beginPath(); x.moveTo(0, r * 1.1); x.bezierCurveTo(r * 0.4, r * 1.6, -r * 0.4, r * 2.1, r * 0.1, r * 2.7); x.lineWidth = 5; x.stroke();
     x.restore();
   };
-  balloon(W * 0.2, H * 0.67, 150, -0.15);
-  balloon(W * 0.5, H * 0.72, 175, 0.02);
-  balloon(W * 0.8, H * 0.66, 145, 0.18);
+  balloon(W * 0.22, H * 0.66, 130, -0.28);
+  balloon(W * 0.78, H * 0.66, 130, 0.28);
+  balloon(W * 0.36, H * 0.6, 150, -0.12);
+  balloon(W * 0.64, H * 0.6, 150, 0.12);
+  balloon(W * 0.5, H * 0.65, 165, 0);
+  // bow
+  outline(() => { x.moveTo(knot.x, knot.y); x.bezierCurveTo(knot.x - 90, knot.y - 60, knot.x - 110, knot.y + 50, knot.x, knot.y); }, 7);
+  outline(() => { x.moveTo(knot.x, knot.y); x.bezierCurveTo(knot.x + 90, knot.y - 60, knot.x + 110, knot.y + 50, knot.x, knot.y); }, 7);
+  outline(() => x.arc(knot.x, knot.y, 16, 0, Math.PI * 2), 6);
+  x.beginPath(); x.moveTo(knot.x - 6, knot.y + 14); x.quadraticCurveTo(knot.x - 40, knot.y + 80, knot.x - 20, knot.y + 130); x.moveTo(knot.x + 6, knot.y + 14); x.quadraticCurveTo(knot.x + 40, knot.y + 80, knot.x + 25, knot.y + 125); x.lineWidth = 5; x.stroke();
   const star = (sx: number, sy: number, r: number) => outline(() => {
     for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5; const rr = i % 2 ? r * 0.45 : r; x.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); }
     x.closePath();
@@ -471,9 +494,82 @@ async function congratsArt(W: number, H: number): Promise<Blob> {
     x.bezierCurveTo(hx - s, hy - s * 0.3, hx - s * 0.45, hy - s, hx, hy - s * 0.45);
     x.bezierCurveTo(hx + s * 0.45, hy - s, hx + s, hy - s * 0.3, hx, hy + s * 0.35);
   }, 7);
-  star(W * 0.17, H * 0.12, 70); star(W * 0.84, H * 0.15, 85); star(W * 0.12, H * 0.42, 50); star(W * 0.9, H * 0.4, 55);
-  star(W * 0.35, H * 0.9, 60); star(W * 0.68, H * 0.92, 48);
-  heart(W * 0.5, H * 0.13, 80); heart(W * 0.12, H * 0.9, 60); heart(W * 0.88, H * 0.88, 70);
-  for (const [dx, dy, r] of [[0.3, 0.16, 18], [0.7, 0.2, 14], [0.25, 0.56, 16], [0.75, 0.56, 20], [0.07, 0.25, 12], [0.93, 0.26, 15]] as const) outline(() => x.arc(W * dx, H * dy, r, 0, Math.PI * 2), 6);
+  star(W * 0.12, H * 0.34, 60); star(W * 0.88, H * 0.36, 70); star(W * 0.14, H * 0.9, 65); star(W * 0.86, H * 0.91, 55);
+  heart(W * 0.11, H * 0.5, 55); heart(W * 0.89, H * 0.52, 60); heart(W * 0.3, H * 0.93, 45); heart(W * 0.7, H * 0.94, 50);
+  for (const [dx, dy, r] of [[0.2, 0.22, 14], [0.8, 0.23, 16], [0.08, 0.66, 12], [0.92, 0.7, 14], [0.2, 0.8, 16], [0.8, 0.8, 13]]) outline(() => x.arc(W * dx, H * dy, r, 0, Math.PI * 2), 6);
+  return new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
+}
+
+/** The grown-up "well done" page: an engraved frame, a laurel wreath and outlined serif letters, all open shapes to colour. */
+async function congratsElegant(W: number, H: number): Promise<Blob> {
+  const family = '"Suez One", "Frank Ruhl Libre", serif';
+  try { await document.fonts.load(`400 260px ${family}`, 'כל הכבוד'); } catch { /* fall back */ }
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.lineJoin = 'round'; x.lineCap = 'round'; x.strokeStyle = '#141414';
+  const shape = (draw: () => void, lw = 6) => { x.beginPath(); draw(); x.fillStyle = '#fff'; x.fill(); x.lineWidth = lw; x.stroke(); };
+  // engraved double frame with inner border band to colour
+  x.lineWidth = 8; x.strokeRect(60, 60, W - 120, H - 120);
+  x.lineWidth = 4; x.strokeRect(100, 100, W - 200, H - 200);
+  // diamonds along the band
+  for (let i = 0; i < 14; i++) { const t = (i + 0.5) / 14, px = 60 + t * (W - 120); for (const py of [80, H - 80]) shape(() => { x.moveTo(px, py - 12); x.lineTo(px + 12, py); x.lineTo(px, py + 12); x.lineTo(px - 12, py); x.closePath(); }, 3); }
+  for (let i = 0; i < 20; i++) { const t = (i + 0.5) / 20, py = 60 + t * (H - 120); for (const px of [80, W - 80]) shape(() => { x.moveTo(px, py - 12); x.lineTo(px + 12, py); x.lineTo(px, py + 12); x.lineTo(px - 12, py); x.closePath(); }, 3); }
+  // corner flourishes
+  const flourish = (cx: number, cy: number, sx: number, sy: number) => {
+    x.save(); x.translate(cx, cy); x.scale(sx, sy);
+    x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(120, 0, 160, 60, 110, 110); x.bezierCurveTo(70, 150, 20, 110, 50, 75); x.bezierCurveTo(70, 55, 95, 75, 80, 90); x.lineWidth = 6; x.stroke();
+    x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(0, 120, 60, 160, 110, 110); x.stroke();
+    shape(() => x.ellipse(150, 30, 34, 14, 0.4, 0, Math.PI * 2), 5); shape(() => x.ellipse(30, 150, 14, 34, 0.4, 0, Math.PI * 2), 5);
+    shape(() => x.arc(0, 0, 16, 0, Math.PI * 2), 5);
+    x.restore();
+  };
+  flourish(130, 130, 1, 1); flourish(W - 130, 130, -1, 1); flourish(130, H - 130, 1, -1); flourish(W - 130, H - 130, -1, -1);
+  // laurel wreath
+  const cx = W / 2, cy = H * 0.47, R = 560;
+  for (const side of [-1, 1]) {
+    x.beginPath(); x.arc(cx, cy, R, side < 0 ? Math.PI * 0.62 : Math.PI * 0.38, side < 0 ? Math.PI * 1.32 : -Math.PI * 0.32, side > 0); x.lineWidth = 7; x.stroke();
+    for (let i = 0; i < 11; i++) {
+      const a = Math.PI / 2 + side * (0.22 + i * 0.105) * Math.PI * 1.0;
+      const px = cx + Math.cos(a) * R, py = cy + Math.sin(a) * R;
+      const tang = a + side * Math.PI / 2;
+      for (const off of [-0.55, 0.55]) {
+        x.save(); x.translate(px, py); x.rotate(tang + off * side);
+        shape(() => { x.moveTo(0, 0); x.quadraticCurveTo(28, -34, 0, -86); x.quadraticCurveTo(-28, -34, 0, 0); }, 5);
+        x.beginPath(); x.moveTo(0, -6); x.lineTo(0, -72); x.lineWidth = 2.5; x.stroke();
+        x.restore();
+      }
+      if (i % 4 === 2) shape(() => x.arc(px - Math.cos(a) * 40, py - Math.sin(a) * 40, 14, 0, Math.PI * 2), 5);
+    }
+  }
+  // ribbon at the bottom of the wreath
+  const ry = cy + R + 10;
+  shape(() => { x.moveTo(cx - 40, ry - 30); x.bezierCurveTo(cx - 160, ry - 110, cx - 190, ry + 40, cx - 40, ry); x.closePath(); }, 6);
+  shape(() => { x.moveTo(cx + 40, ry - 30); x.bezierCurveTo(cx + 160, ry - 110, cx + 190, ry + 40, cx + 40, ry); x.closePath(); }, 6);
+  shape(() => { x.moveTo(cx - 30, ry); x.lineTo(cx - 110, ry + 170); x.lineTo(cx - 70, ry + 150); x.lineTo(cx - 50, ry + 190); x.lineTo(cx + 5, ry + 10); x.closePath(); }, 6);
+  shape(() => { x.moveTo(cx + 30, ry); x.lineTo(cx + 110, ry + 170); x.lineTo(cx + 70, ry + 150); x.lineTo(cx + 50, ry + 190); x.lineTo(cx - 5, ry + 10); x.closePath(); }, 6);
+  shape(() => x.ellipse(cx, ry - 15, 38, 32, 0, 0, Math.PI * 2), 6);
+  // outlined serif letters, each its own shape
+  const word = (text: string, wy: number, size: number) => {
+    x.font = `${size}px ${family}`; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.direction = 'ltr';
+    const gap = size * 0.06;
+    const chars = [...text], widths = chars.map((ch) => x.measureText(ch).width);
+    const total = widths.reduce((a, w) => a + w, 0) + gap * (chars.length - 1);
+    const m = x.measureText('כ'); const base = wy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+    let right = cx + total / 2;
+    chars.forEach((ch, i) => {
+      const left = right - widths[i];
+      x.lineWidth = 14; x.strokeStyle = '#141414'; x.strokeText(ch, left, base);
+      x.lineWidth = 4; x.strokeStyle = '#fff'; x.strokeText(ch, left, base);
+      x.fillStyle = '#fff'; x.fillText(ch, left, base);
+      right = left - gap;
+    });
+    x.strokeStyle = '#141414';
+  };
+  word('כל', cy - 150, 300);
+  word('הכבוד', cy + 170, 280);
+  // a crown of small stars above the wreath
+  const star = (sx: number, sy: number, r: number) => shape(() => { for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5; const rr = i % 2 ? r * 0.42 : r; x.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } x.closePath(); }, 5);
+  star(cx, cy - R - 70, 50); star(cx - 120, cy - R - 40, 32); star(cx + 120, cy - R - 40, 32);
   return new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
 }

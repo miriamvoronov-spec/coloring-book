@@ -65,7 +65,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
 
   const bookOnShelf = async (b: BookMeta) => {
     const url = await coverUrl(b);
-    const book = h('button', { class: 'shelf-book' + (b.direction === 'rtl' ? ' shelf-book--rtl' : ''), type: 'button', 'aria-label': `פתיחת ${b.title}` },
+    const book = h('button', { class: 'shelf-book' + (b.direction === 'rtl' ? ' shelf-book--rtl' : ''), type: 'button', 'data-id': b.id, 'aria-label': `פתיחת ${b.title}` },
       h('div', { class: 'shelf-book__body' }, spineFace(b), coverFace(b, url), h('div', { class: 'shelf-book__pages' })),
       h('div', { class: 'shelf-book__label', dir: 'auto' }, b.title));
     book.addEventListener('click', async () => {

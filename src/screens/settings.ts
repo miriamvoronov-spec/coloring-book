@@ -98,6 +98,7 @@ export function settingsScreen(el: HTMLElement) {
     return box;
   };
   const side = radios('מיקום סרגל הכלים', [['right', 'ימין'], ['left', 'שמאל'], ['top', 'למעלה'], ['bottom', 'למטה']], prefs.get('toolbarSide', 'right'), (v) => prefs.set('toolbarSide', v));
+  const congrats = radios('סגנון עמוד כל הכבוד', [['elegant', 'אלגנטי: זר עלים ומסגרת'], ['playful', 'חגיגי: בלונים ודגלים']], prefs.get('congratsStyle', 'elegant'), (v) => prefs.set('congratsStyle', v));
   const dir = radios('כיוון דפדוף', [['rtl', 'מימין לשמאל (עברית)'], ['ltr', 'משמאל לימין (אנגלית)']], prefs.get('defaultDirection', 'rtl'), (v) => prefs.set('defaultDirection', v));
 
   // ----- creating pages -----
@@ -150,8 +151,9 @@ export function settingsScreen(el: HTMLElement) {
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
-      section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
-      section('✨ יצירת דפים', h('p', { class: 'set-label' }, 'מי מצייר את הדפים ב"רעיון לצביעה"'), provider, keyRow),
+      section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir,
+        h('p', { class: 'set-label' }, 'עמוד "כל הכבוד" בסוף חוברות שנוצרו עם קלוד'), congrats),
+      section('✨ יצירת דפים', h('p', { class: 'set-label' }, 'מי מצייר את הדפים ב"צור חוברת צביעה". את סגנון הציור (אלגנטי, מבוגר, ילדותי, בוטני ועוד) בוחרים בחלון היצירה.'), provider, keyRow),
       section('💾 גיבוי ושחזור', h('p', { class: 'set-label' }, 'כל החוברות והצביעה שלך בקובץ אחד, להעברה לטאבלט אחר או לשמירה.'),
         h('div', { class: 'form__actions' }, backupBtn, h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => restorePick.click() }, '📂 שחזור מגיבוי')), restorePick, backupStatus),
       section('📲 התקנה במסך הבית', h('p', { class: 'set-about' }, 'בטאבלט: Chrome ← ⋮ ← "הוסף למסך הבית". כאן ב-claude.ai אפשר גם להצמיד את הדף, והוא נפתח בקישור בלי התקנה.')),

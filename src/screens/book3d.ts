@@ -49,9 +49,19 @@ function build(book: BookMeta, front: string | null, back: string | null) {
 
 const anim = (el: Element, k: Keyframe[], o: KeyframeAnimationOptions) => el.animate(k, { fill: 'forwards', ...o }).finished;
 
+/** The mover carries position and scale; the book inside it only turns. One transform per element, so nothing jumps. */
+function mover(stage: HTMLElement, b: HTMLElement): HTMLElement {
+  const m = h('div', { class: 'book3d-mover' });
+  stage.insertBefore(m, b); m.append(b);
+  return m;
+}
+
+/** Where the open page will sit in the reader: as tall as the screen allows. */
+function pageScale(H: number): number { return Math.min((innerHeight - 140) / H, (innerWidth - 40) / (H / 1.4)) ; }
+
 /**
- * Lift the book off the shelf, float it to the middle in a pool of warm light,
- * open the cover onto a gilded title page, then glide into the first page.
+ * Lift the book off the shelf to the middle of the screen, a flash of magic,
+ * open the cover, then glide into the first page. About two seconds.
  * `behind` mounts the reader under the animation just before it fades away.
  */
 export async function openBookAnimation(book: BookMeta, front: string | null, from: DOMRect, behind?: () => void): Promise<void> {
@@ -66,69 +76,81 @@ export async function openBookAnimation(book: BookMeta, front: string | null, fr
     stage.remove();
     return;
   }
+  const m = mover(stage, b);
   const dx = from.left + from.width / 2 - innerWidth / 2;
   const dy = from.top + from.height / 2 - innerHeight / 2;
   const s0 = from.height / H;
-  const ease = 'cubic-bezier(.33,.1,.2,1)';
-  stage.animate([{ background: 'rgba(12,6,2,0)' }, { background: 'rgba(12,6,2,.82)' }], { duration: 900, fill: 'forwards' });
-  glow.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 1300, fill: 'forwards', easing: ease });
-  // lift out of the shelf, float to the middle and turn to face her
-  await anim(b, [
-    { transform: `translate3d(${dx}px,${dy}px,0) scale(${s0}) rotateY(${22 * sign}deg)` },
-    { transform: `translate3d(${dx}px,${dy - 30}px,80px) scale(${s0 * 1.08}) rotateY(${26 * sign}deg)`, offset: 0.18 },
-    { transform: `translate3d(${dx * 0.35}px,${dy * 0.3 - 30}px,140px) scale(.82) rotateY(${-14 * sign}deg) rotateX(6deg)`, offset: 0.65 },
-    { transform: 'translate3d(0,0,0) scale(1) rotateY(0deg) rotateX(0deg)' },
-  ], { duration: 1350, easing: ease });
-  b.style.transform = 'none';
-  b.getAnimations().forEach((a) => a.cancel());
+  const ease = 'cubic-bezier(.25,.1,.25,1)';
+  stage.animate([{ background: 'rgba(12,6,2,0)' }, { background: 'rgba(12,6,2,.8)' }], { duration: 600, fill: 'forwards' });
+  glow.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 800, fill: 'forwards', easing: ease });
+  // 1. lift out of the shelf and float to the middle, turning to face her
+  b.animate([{ transform: `rotateY(${24 * sign}deg)` }, { transform: `rotateY(${-10 * sign}deg) rotateX(4deg)`, offset: 0.6 }, { transform: 'rotateY(0deg)' }], { duration: 750, easing: ease, fill: 'forwards' });
+  await anim(m, [
+    { transform: `translate3d(${dx}px,${dy}px,0) scale(${s0})` },
+    { transform: `translate3d(${dx * 0.4}px,${dy * 0.4 - 24}px,0) scale(${0.6 + s0 * 0.3})`, offset: 0.55 },
+    { transform: 'translate3d(0,0,0) scale(1)' },
+  ], { duration: 750, easing: ease });
   chime();
-  sparkle(innerWidth / 2, innerHeight / 2 - H * 0.1, 80, 9);
-  flash.animate([{ opacity: 0 }, { opacity: 0.85, offset: 0.3 }, { opacity: 0 }], { duration: 650 });
-  b.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }], { duration: 700, easing: 'ease-in-out' });
-  await wait(260);
+  sparkle(innerWidth / 2, innerHeight / 2 - H * 0.1, 70, 8);
+  flash.animate([{ opacity: 0 }, { opacity: 0.8, offset: 0.3 }, { opacity: 0 }], { duration: 500 });
+  // 2. open the cover; the spread slides over so it stays centred
   paperFlip();
-  // open the cover; the book slides over so the open spread stays centred
-  b.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${sign * W * 0.5}px)` }], { duration: 1050, easing: 'cubic-bezier(.55,.05,.3,1)', fill: 'forwards' });
-  await anim(hinge, [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${-172 * sign}deg)` }], { duration: 1050, easing: 'cubic-bezier(.55,.05,.3,1)' });
-  sparkle(innerWidth / 2 + sign * W * 0.5, innerHeight / 2, 40, 5);
-  await wait(420);
-  // glide into the page
+  const openEase = 'cubic-bezier(.45,.05,.3,1)';
+  m.animate([{ transform: 'translate3d(0,0,0) scale(1)' }, { transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }], { duration: 800, easing: openEase, fill: 'forwards' });
+  await anim(hinge, [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${-175 * sign}deg)` }], { duration: 800, easing: openEase });
+  // 3. glide into the first page and hand over to the reader
   behind?.();
-  b.animate([{ transform: `translateX(${sign * W * 0.5}px) scale(1)` }, { transform: 'translateX(0) scale(1.06)' }], { duration: 560, easing: 'ease-in-out', fill: 'forwards' });
-  await anim(stage, [{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], { duration: 640, easing: 'ease-in' });
+  const k = pageScale(H);
+  m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: `translate3d(0,0,0) scale(${k})` }], { duration: 450, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+  await anim(stage, [{ opacity: 1 }, { opacity: 1, offset: 0.45 }, { opacity: 0 }], { duration: 500, easing: 'ease-in' });
   stage.remove();
 }
 
-export async function closeBookAnimation(book: BookMeta, fromBack = false): Promise<void> {
+/**
+ * Close the book and put it back: the cover swings shut, the book turns to
+ * show its spine and flies back to its place on the shelf (or to the middle
+ * of the shelf screen when the place is unknown), leaving a trail of sparkles.
+ */
+export async function closeBookAnimation(book: BookMeta, fromBack = false, target?: () => DOMRect | null): Promise<void> {
   const [front, back] = await Promise.all([coverUrl(book), coverUrl(book, 'back')]);
-  const { stage, b, hinge, sign } = build(book, front, back);
-  stage.style.background = 'rgba(12,6,2,.78)';
-  if (fromBack && !reducedMotion()) {
-    // already looking at the back cover: turn it a little to show the spine, then put it back on the shelf
-    b.style.transform = `rotateY(${180 * sign}deg)`;
-    await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
-    await anim(b, [{ transform: `rotateY(${180 * sign}deg)` }, { transform: `rotateY(${150 * sign}deg) rotateX(-6deg)` }], { duration: 700, easing: 'ease-in-out' });
-    chime();
-    sparkle(innerWidth / 2, innerHeight / 2, 50, 6);
-    stage.animate([{ background: 'rgba(12,6,2,.78)' }, { background: 'rgba(12,6,2,0)' }], { duration: 700, fill: 'forwards' });
-    await anim(b, [
-      { transform: `rotateY(${150 * sign}deg) rotateX(-6deg)` },
-      { transform: `translate3d(0,${innerHeight * 0.25}px,-300px) scale(.35) rotateY(${120 * sign}deg)`, opacity: 0 },
-    ], { duration: 750, easing: 'ease-in' });
-    stage.remove();
-    return;
-  }
-  hinge.style.transform = `rotateY(${-168 * sign}deg)`;
+  const { stage, b, hinge, H, W, sign } = build(book, front, back);
+  const m = mover(stage, b);
+  stage.style.background = 'rgba(12,6,2,.8)';
   if (reducedMotion()) { await wait(200); stage.remove(); return; }
-  await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 250 });
-  paperFlip();
-  await anim(hinge, [{ transform: `rotateY(${-168 * sign}deg)` }, { transform: 'rotateY(0deg)' }], { duration: 800, easing: 'cubic-bezier(.5,0,.3,1)' });
-  await anim(b, [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${155 * sign}deg) rotateX(-6deg)` }], { duration: 1100, easing: 'cubic-bezier(.45,.05,.25,1)' });
-  await wait(700);
-  stage.animate([{ background: 'rgba(12,6,2,.78)' }, { background: 'rgba(12,6,2,0)' }], { duration: 700, fill: 'forwards' });
-  await anim(b, [
-    { transform: `rotateY(${155 * sign}deg) rotateX(-6deg)` },
-    { transform: `translate3d(0,${innerHeight * 0.25}px,-300px) scale(.35) rotateY(${175 * sign}deg)`, opacity: 0 },
-  ], { duration: 700, easing: 'ease-in' });
+  const k = pageScale(H);
+  const ease = 'cubic-bezier(.4,0,.2,1)';
+  if (fromBack) {
+    b.style.transform = `rotateY(${180 * sign}deg)`;
+    await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
+  } else {
+    // from the open page: shrink to the open spread, then swing the cover shut
+    hinge.style.transform = `rotateY(${-175 * sign}deg)`;
+    m.style.transform = `translate3d(0,0,0) scale(${k})`;
+    await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
+    await anim(m, [{ transform: `translate3d(0,0,0) scale(${k})` }, { transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }], { duration: 380, easing: ease });
+    paperFlip();
+    m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: 'translate3d(0,0,0) scale(1)' }], { duration: 650, easing: ease, fill: 'forwards' });
+    await anim(hinge, [{ transform: `rotateY(${-175 * sign}deg)` }, { transform: 'rotateY(0deg)' }], { duration: 650, easing: ease });
+  }
+  chime();
+  sparkle(innerWidth / 2, innerHeight / 2, 40, 5);
+  const startRot = fromBack ? 180 * sign : 0;
+  // fade the backdrop so the shelf shows through, then fly home
+  stage.animate([{ background: 'rgba(12,6,2,.8)' }, { background: 'rgba(12,6,2,0)' }], { duration: 700, fill: 'forwards' });
+  await wait(60);
+  const r = target?.() ?? null;
+  const tx = r ? r.left + r.width / 2 - innerWidth / 2 : 0;
+  const ty = r ? r.top + r.height / 2 - innerHeight / 2 : innerHeight * 0.2;
+  const ts = r ? r.height / H : 0.3;
+  b.animate([{ transform: `rotateY(${startRot}deg)` }, { transform: `rotateY(${startRot + 12 * sign}deg) rotateX(-4deg)`, offset: 0.4 }, { transform: `rotateY(${22 * sign}deg)` }], { duration: 800, easing: ease, fill: 'forwards' });
+  const trail = window.setInterval(() => { const q = m.getBoundingClientRect(); sparkle(q.left + q.width / 2, q.top + q.height / 2, 6, 2); }, 90);
+  await anim(m, [
+    { transform: 'translate3d(0,0,0) scale(1)' },
+    { transform: `translate3d(${tx * 0.5}px,${ty * 0.5 - 30}px,0) scale(${(1 + ts) / 2})`, offset: 0.5 },
+    { transform: `translate3d(${tx}px,${ty}px,0) scale(${ts})`, opacity: r ? 1 : 0 },
+  ], { duration: 800, easing: ease });
+  clearInterval(trail);
+  if (r) sparkle(r.left + r.width / 2, r.top + r.height / 2, 30, 4);
+  await anim(stage, [{ opacity: 1 }, { opacity: 0 }], { duration: 160 });
   stage.remove();
 }

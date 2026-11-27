@@ -20,6 +20,22 @@ export type Level = 1 | 2 | 3;
 export const LEVEL_HE: Record<Level, string> = { 1: 'קל: מעט אזורים גדולים', 2: 'בינוני', 3: 'מאתגר: הרבה אזורים קטנים' };
 const LEVEL_SHAPES: Record<Level, string> = { 1: 'about 25 to 40 shapes, all fairly large', 2: 'about 50 to 80 shapes', 3: 'about 100 to 160 shapes, many of them small' };
 
+/** Drawing styles she can pick when creating. */
+export type ArtStyle = 'elegant' | 'adult' | 'storybook' | 'kids' | 'botanical' | 'mandala' | 'artnouveau' | 'vintage' | 'stainedglass' | 'folk';
+export const ART_STYLES: { id: ArtStyle; he: string; prompt: string }[] = [
+  { id: 'elegant', he: 'אלגנטי', prompt: 'Elegant and refined: graceful flowing curves, delicate ornamental details, balanced symmetry, a sophisticated muted-jewel palette.' },
+  { id: 'adult', he: 'מבוגר ומפורט', prompt: 'A detailed coloring page for adults: realistic proportions, intricate patterns filling the background, many fine sections, calm sophisticated mood.' },
+  { id: 'storybook', he: 'אגדה קסומה', prompt: 'Whimsical fairy-tale storybook illustration, magical and warm.' },
+  { id: 'kids', he: 'ילדותי', prompt: 'Cute and playful for children: big round friendly shapes, smiling characters, bright cheerful colours.' },
+  { id: 'botanical', he: 'בוטני', prompt: 'Botanical illustration: leaves, flowers and vines drawn with natural detail, like a vintage botanical print.' },
+  { id: 'mandala', he: 'מנדלה', prompt: 'A mandala-like radial composition with repeating symmetric patterns around the subject.' },
+  { id: 'artnouveau', he: 'ארט נובו', prompt: 'Art Nouveau style: sinuous organic lines, decorative arched frame, flowing hair and floral ornaments, like a Mucha poster.' },
+  { id: 'vintage', he: 'וינטג׳', prompt: 'Vintage nineteen-fifties storybook style with soft retro colours and simple elegant shapes.' },
+  { id: 'stainedglass', he: 'ויטראז׳', prompt: 'Stained-glass window style: the picture divided into many angular glass pieces inside a gothic arch.' },
+  { id: 'folk', he: 'אמנות עממית', prompt: 'Folk-art style: decorative flat motifs, birds and flowers, like Scandinavian or Eastern European folk painting.' },
+];
+export const styleOf = (id?: string) => ART_STYLES.find((x) => x.id === id) ?? ART_STYLES[0];
+
 export interface IdeaRec { id: string; text: string; kind: 'page' | 'theme'; at: number }
 
 export const history = {
@@ -66,17 +82,17 @@ Answer with JSON only: an array of ${count} Hebrew strings. No other text.`;
 }
 
 /** Ask Claude for a flat-colour SVG of the idea. */
-async function drawSvg(idea: string, level: Level, colors: number, onProgress: (n: number) => void, signal?: AbortSignal): Promise<string> {
+async function drawSvg(idea: string, level: Level, colors: number, onProgress: (n: number) => void, signal?: AbortSignal, style?: ArtStyle): Promise<string> {
   const s = await sampler();
   const prompt = `Draw an original color-by-number coloring page as SVG. Subject (may be Hebrew): "${idea}".
 Rules:
 - Output ONLY the SVG, starting with <svg and ending with </svg>. No explanations, no markdown.
 - viewBox="0 0 1000 1400". The first element is <rect x="0" y="0" width="1000" height="1400"> filling the background.
 - Use only <rect>, <circle>, <ellipse>, <polygon> and <path> with a solid fill="#rrggbb". No stroke, no text, no gradients, no filters, no opacity, no transform, no clipPath, no <use>.
-- Use exactly ${colors} different fill colours in total: a harmonious, cheerful palette. Neighbouring shapes should usually differ in colour.
+- Use exactly ${colors} different fill colours in total: a harmonious palette that suits the style. Neighbouring shapes should usually differ in colour.
 - ${LEVEL_SHAPES[level]}. Later shapes are painted over earlier ones. Every shape must be big enough to hold a small number (at least 18 units across).
 - A clear, charming composition that fills the page: a main subject in the middle, a decorative background (sky, stars, patterns, plants) around it.
-- Fairy-tale, whimsical, storybook mood. Do not copy any existing character or brand.`;
+- Style: ${styleOf(style).prompt} Do not copy any existing character or brand.`;
   let last = 0;
   const { text } = await s(prompt, {
     signal, modelTier: 'complex', cache: false,
@@ -209,7 +225,7 @@ export async function pageFromPicture(fillCanvas: HTMLCanvasElement, palette: st
   return { art, labels, legend, solution: sol };
 }
 
-export interface MakeOpts { level: Level; colors: number; signal?: AbortSignal; progress?: (m: string) => void }
+export interface MakeOpts { level: Level; colors: number; style?: ArtStyle; signal?: AbortSignal; progress?: (m: string) => void }
 
 /** One finished page record (not yet saved). */
 export async function makePage(bookId: string, idea: string, title: string, o: MakeOpts): Promise<PageRec> {
@@ -217,12 +233,12 @@ export async function makePage(bookId: string, idea: string, title: string, o: M
   let fill: HTMLCanvasElement, palette: string[];
   if (provider !== 'claude' && prefs.get('imgKey.' + provider, '')) {
     o.progress?.(provider === 'openai' ? 'OpenAI מצייר…' : 'Gemini מצייר…');
-    fill = await rasterFromApi(provider, idea, o.level, o.colors, o.signal);
+    fill = await rasterFromApi(provider, idea, o.level, o.colors, o.signal, o.style);
     o.progress?.('מסדרת קווים, אזורים ומספרים…');
     palette = quantize(fill, o.colors);
   } else {
     o.progress?.('קלוד מצייר…');
-    const raw = await drawSvg(idea, o.level, o.colors, (n) => o.progress?.(`קלוד מצייר… (${Math.round(n / 100)})`), o.signal);
+    const raw = await drawSvg(idea, o.level, o.colors, (n) => o.progress?.(`קלוד מצייר… (${Math.round(n / 100)})`), o.signal, o.style);
     o.progress?.('מסדרת קווים, אזורים ומספרים…');
     const clean = sanitize(raw);
     palette = clean.palette;
@@ -261,20 +277,20 @@ export async function savePages(target: { bookId: string } | { title: string; co
 // ---------------- optional image APIs (her own key, kept only on this device) ----------------
 export type Provider = 'claude' | 'openai' | 'gemini';
 
-function imagePrompt(idea: string, level: Level, colors: number): string {
-  return `An original color-by-number illustration for a coloring book: ${idea}. Whimsical fairy-tale storybook style. ` +
+function imagePrompt(idea: string, level: Level, colors: number, style?: ArtStyle): string {
+  return `An original color-by-number illustration for a coloring book: ${idea}. ${styleOf(style).prompt} ` +
     `Flat solid colour areas only, exactly ${colors} distinct colours, no outlines, no gradients, no shading, no texture, no text. ` +
     `${level === 1 ? 'Few large simple shapes.' : level === 2 ? 'A moderate number of medium shapes.' : 'Many small detailed shapes.'} Portrait page, full composition.`;
 }
 
-async function rasterFromApi(provider: 'openai' | 'gemini', idea: string, level: Level, colors: number, signal?: AbortSignal): Promise<HTMLCanvasElement> {
+async function rasterFromApi(provider: 'openai' | 'gemini', idea: string, level: Level, colors: number, signal?: AbortSignal, style?: ArtStyle): Promise<HTMLCanvasElement> {
   const key = prefs.get('imgKey.' + provider, '');
   let b64 = '';
   try {
     if (provider === 'openai') {
       const r = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt: imagePrompt(idea, level, colors), size: '1024x1536', n: 1 }),
+        body: JSON.stringify({ model: 'gpt-image-1', prompt: imagePrompt(idea, level, colors, style), size: '1024x1536', n: 1 }),
       });
       const j = await r.json();
       if (!r.ok) throw apiError(r.status, j?.error?.code || j?.error?.message);
@@ -282,7 +298,7 @@ async function rasterFromApi(provider: 'openai' | 'gemini', idea: string, level:
     } else {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(key)}`, {
         method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: imagePrompt(idea, level, colors) }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: imagePrompt(idea, level, colors, style) }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
       });
       const j = await r.json();
       if (!r.ok) throw apiError(r.status, j?.error?.status);

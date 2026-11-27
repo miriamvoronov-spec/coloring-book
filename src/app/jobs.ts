@@ -22,11 +22,12 @@ export function dismissJob(id: string): void { const i = jobs.findIndex((j) => j
 /** Fired after a background import saves a book, so open screens can refresh. */
 export const BOOKS_CHANGED = 'mcb:books-changed';
 
-export function startPdfJob(doc: PdfDoc, plan: PdfBookPlan): Job {
-  const job: Job = { id: 'j' + Date.now().toString(36), title: plan.title, categoryId: plan.category.id, msg: 'מתחילה…', frac: 0, state: 'run', ctl: new AbortController() };
+/** Run any long book-building task in the background, with progress for the library screen. */
+export function startJob(title: string, categoryId: string, run: (progress: (m: string, f: number) => void, signal: AbortSignal) => Promise<BookMeta>, cleanup?: () => void): Job {
+  const job: Job = { id: 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title, categoryId, msg: 'מתחילה…', frac: 0, state: 'run', ctl: new AbortController() };
   jobs.push(job); emit();
   let last = 0;
-  void importPdfBook(doc, plan, (m, f) => {
+  void run((m, f) => {
     job.msg = m; job.frac = f;
     const now = performance.now();
     if (now - last > 250) { last = now; emit(); }
@@ -35,7 +36,11 @@ export function startPdfJob(doc: PdfDoc, plan: PdfBookPlan): Job {
     dispatchEvent(new CustomEvent(BOOKS_CHANGED));
   }).catch((e) => {
     console.error(e);
-    job.state = 'error'; job.msg = job.ctl.signal.aborted ? 'ההוספה בוטלה' : e instanceof Error ? e.message : 'ההוספה נכשלה';
-  }).finally(() => { void doc.destroy(); emit(); });
+    job.state = 'error'; job.msg = job.ctl.signal.aborted ? 'בוטל' : e instanceof Error ? e.message : 'נכשל';
+  }).finally(() => { cleanup?.(); emit(); });
   return job;
+}
+
+export function startPdfJob(doc: PdfDoc, plan: PdfBookPlan): Job {
+  return startJob(plan.title, plan.category.id, (p, signal) => importPdfBook(doc, plan, p, signal), () => void doc.destroy());
 }
