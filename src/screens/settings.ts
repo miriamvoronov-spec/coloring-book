@@ -3,7 +3,7 @@ import { go } from '../app/app';
 import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS, SCRIPT_FONTS, BOOK_FONTS } from '../app/settings';
 import { ALL_TOOLS, DEFAULT_TOOLS, type ToolName } from '../coloring/brushes';
 import { LOGO_STYLES, logoMark } from '../ui/logo';
-import { chime, FLIP_SOUNDS, paperFlip, SPARKLE_SOUNDS, unlockAudio } from '../ui/sound';
+import { chime, FLIP_SOUNDS, paperFlip, setOwnFlip, SPARKLE_SOUNDS, unlockAudio } from '../ui/sound';
 import { h, toast } from '../ui/dom';
 import { appBar } from '../ui/appbar';
 import { categoriesScreen } from './categories';
@@ -133,6 +133,32 @@ export function settingsScreen(el: HTMLElement) {
   });
   renderBlend();
 
+  // her own page sound: pick a file, or record a page turning with the microphone
+  const ownFlipPick = h('input', { type: 'file', accept: 'audio/*', hidden: true }) as HTMLInputElement;
+  const ownFlipStatus = h('p', { class: 'set-label', role: 'status' });
+  ownFlipPick.addEventListener('change', async () => {
+    const f = ownFlipPick.files?.[0]; ownFlipPick.value = ''; if (!f) return;
+    await setOwnFlip(f); ownFlipStatus.textContent = 'הצליל נשמר ונבחר ✓'; unlockAudio(); paperFlip('own');
+  });
+  let rec: MediaRecorder | null = null;
+  const recBtn = h('button', { class: 'btn', type: 'button' }, '🎙️ להקליט דף מתהפך');
+  recBtn.addEventListener('click', async () => {
+    if (rec) { rec.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks: Blob[] = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop()); rec = null; recBtn.textContent = '🎙️ להקליט דף מתהפך';
+        await setOwnFlip(new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' }));
+        ownFlipStatus.textContent = 'ההקלטה נשמרה ונבחרה ✓'; unlockAudio(); paperFlip('own');
+      };
+      rec.start(); recBtn.textContent = '⏹ לעצור (הפכי דף ליד המיקרופון)';
+      setTimeout(() => { if (rec?.state === 'recording') rec.stop(); }, 4000);
+    } catch { ownFlipStatus.textContent = 'אין גישה למיקרופון. אפשר לבחור קובץ צליל במקום.'; }
+  });
+
   // ----- music -----
   const chSel = h('select', { class: 'field', id: 'set-ch' }) as HTMLSelectElement;
   for (const c of CHANNELS) chSel.append(h('option', { value: c.id }, `${c.icon} ${c.name}`));
@@ -236,6 +262,8 @@ export function settingsScreen(el: HTMLElement) {
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         h('p', { class: 'set-label' }, 'צליל הדפדוף (לחיצה משמיעה אותו)'),
         radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'real'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
+        h('p', { class: 'set-label' }, 'הצליל שלך: הקלטה של דף אמיתי (עד 4 שניות) או קובץ צליל מהמכשיר'),
+        h('div', { class: 'form__actions' }, recBtn, h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => ownFlipPick.click() }, '📂 קובץ צליל')), ownFlipPick, ownFlipStatus,
         radios('צליל הניצוצות', SPARKLE_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('sparkleSound', 'chime'), (v) => { prefs.set('sparkleSound', v); unlockAudio(); chime(v); }),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),

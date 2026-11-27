@@ -1,3 +1,4 @@
+@font-face { font-family: 'Miriam Magic'; src: url('../assets/fonts/miriam-magic.woff2') format('woff2'); font-display: swap; unicode-range: U+0590-05FF; }
 @font-face { font-family: 'Waltograph'; src: url('../assets/fonts/waltograph42.woff2') format('woff2'); font-display: swap; }
 
 /* Layout: one screen at a time, full height; a candle-lit walnut library with paper and gold.

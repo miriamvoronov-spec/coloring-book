@@ -12,6 +12,7 @@ export const THEMES: { id: ThemeId; name: string; swatch: [string, string] }[] =
 ];
 
 export const TITLE_FONTS: { id: string; name: string; css: string }[] = [
+  { id: 'magic', name: 'קסם (דיסני בעברית)', css: "'Waltograph', 'Miriam Magic', 'Suez One', serif" },
   { id: 'suez', name: 'סואץ', css: "'Suez One', Georgia, serif" },
   { id: 'bellefair', name: 'בלפייר', css: "'Bellefair', Georgia, serif" },
   { id: 'secular', name: 'סקולר', css: "'Secular One', system-ui, sans-serif" },
@@ -33,6 +34,7 @@ export const TITLE_FONTS: { id: string; name: string; css: string }[] = [
 /** Lettering for the app's name and for book names (Latin script; Hebrew letters fall back to the title font). */
 export const SCRIPT_FONTS: { id: string; name: string; css: string }[] = [
   { id: 'walt', name: 'דיסני (Waltograph)', css: "'Waltograph'" },
+  { id: 'waltmagic', name: 'דיסני + עברית קסומה', css: "'Waltograph', 'Miriam Magic'" },
   { id: 'vibes', name: 'Great Vibes', css: "'Great Vibes'" },
   { id: 'princess', name: 'Princess Sofia', css: "'Princess Sofia'" },
   { id: 'dancing', name: 'Dancing Script', css: "'Dancing Script'" },

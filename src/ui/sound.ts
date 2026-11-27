@@ -1,5 +1,5 @@
 /** Soft synthesized sounds (paper flip, magic chime). Start only after a tap. */
-import { prefs } from '../app/store';
+import { prefs, store } from '../app/store';
 
 let ac: AudioContext | null = null;
 
@@ -24,6 +24,7 @@ export const FLIP_SOUNDS: { id: string; name: string }[] = [
   { id: 'airy', name: 'דף דק ואוורירי' },
   { id: 'riffle', name: 'דפדוף בכמה דפים' },
   { id: 'close', name: 'דף שנוחת' },
+  { id: 'own', name: '🎙️ הצליל שלי (הקלטה או קובץ)' },
 ];
 
 /** Recordings of real paper (CC0, Kenney), decoded once. */
@@ -33,6 +34,10 @@ function recording(id: string): Promise<AudioBuffer | null> {
   if (!p) {
     p = (async () => {
       try {
+        if (id === 'own') {
+          const b = await store.kv<Blob>('flip-own'); if (!b || !ac) return null;
+          return trim(await ac.decodeAudioData(await b.arrayBuffer()));
+        }
         const { FLIP_DATA } = await import('./flipdata');
         const url = FLIP_DATA[id]; if (!url || !ac) return null;
         const bytes = Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0));
@@ -54,10 +59,33 @@ export function paperFlip(style = prefs.get('flipSound', 'real')): void {
     const src = ac.createBufferSource(); src.buffer = buf;
     // tiny natural variation, like real paper
     src.playbackRate.value = 0.94 + Math.random() * 0.12;
-    const g = ac.createGain(); g.gain.value = style === 'soft' ? 0.55 : 0.7;
+    const g = ac.createGain(); g.gain.value = style === 'soft' ? 0.55 : style === 'own' ? 1 : 0.7;
+    if (style === 'own') src.playbackRate.value = 1;
     src.connect(g).connect(ac.destination);
     src.start();
   });
+}
+
+/** Cut the quiet before and after the sound in a recording. */
+function trim(buf: AudioBuffer): AudioBuffer {
+  if (!ac) return buf;
+  const d = buf.getChannelData(0);
+  let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  const th = peak * 0.08;
+  let a = 0; while (a < d.length && Math.abs(d[a]) < th) a++;
+  let z = d.length - 1; while (z > a && Math.abs(d[z]) < th) z--;
+  a = Math.max(0, a - Math.round(buf.sampleRate * 0.03)); z = Math.min(d.length, z + Math.round(buf.sampleRate * 0.12));
+  if (z - a < buf.sampleRate * 0.05) return buf;
+  const out = ac.createBuffer(buf.numberOfChannels, z - a, buf.sampleRate);
+  for (let c = 0; c < buf.numberOfChannels; c++) out.copyToChannel(buf.getChannelData(c).slice(a, z), c);
+  return out;
+}
+
+/** Her own page sound: a file from the device or a recording, kept on the device. */
+export async function setOwnFlip(b: Blob): Promise<void> {
+  await store.setKv('flip-own', b);
+  decoded.delete('own');
+  prefs.set('flipSound', 'own');
 }
 
 /** Decode the recordings early, so the first flip plays at once. */
