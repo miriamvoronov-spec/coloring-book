@@ -72,14 +72,14 @@ function editCategory(cat: Category | null, refresh: () => void) {
 
 export function categoriesScreen(el: HTMLElement) {
   const grid = h('div', { class: 'cat-grid' });
-  const pick = h('input', { type: 'file', accept: '.pdf,application/pdf', hidden: true }) as HTMLInputElement;
+  const pick = h('input', { type: 'file', accept: '.pdf,application/pdf,image/*', multiple: true, hidden: true }) as HTMLInputElement;
   pick.addEventListener('change', async () => {
-    const f = pick.files?.[0]; pick.value = '';
-    if (!f) return;
+    const fs = [...(pick.files ?? [])]; pick.value = '';
+    if (!fs.length) return;
     const { pdfWizard } = await import('./pdfwizard');
-    pdfWizard(f);
+    pdfWizard(fs);
   });
-  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click() }, '📥 הוספת חוברת PDF');
+  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF או תמונות)');
   const [jobs, offJobs] = jobsBox();
   const lists = h('div', { class: 'lists-row' });
   el.append(h('main', { class: 'categories' },

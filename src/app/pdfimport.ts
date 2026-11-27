@@ -53,6 +53,26 @@ export async function openPdf(file: File): Promise<PdfDoc> {
   }
 }
 
+/** Pictures (PNG, JPG…) of a book's pages, read like a PDF so the same wizard and import work for them.
+ *  They are put in the order of their file names (page2 before page10). */
+export function imagesAsDoc(files: File[]): PdfDoc {
+  const list = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const bitmaps = new Map<number, Promise<ImageBitmap>>();
+  const bmp = (n: number) => { let p = bitmaps.get(n); if (!p) { p = createImageBitmap(list[n - 1]); bitmaps.set(n, p); } return p; };
+  return {
+    numPages: list.length,
+    async getPage(n: number): Promise<PdfPage> {
+      const b = await bmp(n);
+      return {
+        getViewport: ({ scale }) => ({ width: b.width * scale, height: b.height * scale }),
+        render: ({ canvasContext, viewport }) => ({ promise: (async () => { canvasContext.drawImage(b, 0, 0, viewport.width, viewport.height); })() }),
+        cleanup: () => { /* kept until the book is built */ },
+      };
+    },
+    async destroy() { for (const p of bitmaps.values()) (await p).close(); bitmaps.clear(); },
+  };
+}
+
 /** Render page n (1-based) so its long side is `side` pixels. */
 export async function renderPage(doc: PdfDoc, n: number, side: number): Promise<HTMLCanvasElement> {
   const page = await doc.getPage(n);

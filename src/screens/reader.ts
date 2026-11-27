@@ -751,11 +751,14 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const firstPage = entries.find((e) => e.kind === 'page') as { id: string } | undefined;
     const fp = firstPage ? await store.page(firstPage.id) : undefined;
     // the book's shape follows its front cover when it has one, so pages and cover are the same size
+    // the book takes the shape of its own pages, so a page fills its leaf like in the printed book
     const cu = await coverUrl(book);
-    const cov = cu ? await new Promise<number | null>((res) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = () => res(null); im.src = cu; }) : null;
-    const aspect = cov ?? (fp ? fp.width / fp.height : 1 / 1.4);
-    bindColor = (await coverTone(cu)) ?? book.coverColor;
+    const cov = !!cu;
+    const aspect = fp ? fp.width / fp.height : 1 / 1.4;
+    // the binding is the book's own cover colour (the one chosen in its edit sheet); only a book without one takes it from the cover picture
+    bindColor = book.coverColor || (await coverTone(cu)) || '#6b3a1f';
     frame.style.setProperty('--cover', bindColor);
+    root.style.setProperty('--cover', bindColor);
     spread = new SpreadView(leaves, rtl, aspect, bindColor, {
       render: renderLeaf,
       onOpen: (leaf) => void openForColoring(leaf.entry),

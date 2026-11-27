@@ -288,3 +288,43 @@ export function logoButterfly(size: number, label: string): string {
   <g fill="url(#lf-gold)" stroke="#b07a26" stroke-width=".5">${star(40, 40, 7, 's1')}${star(204, 36, 8, 's2')}${star(214, 130, 5, 's3')}${star(26, 134, 5, 's4')}</g>
 </svg>`;
 }
+
+/** An open coloring book; a marker draws a swirl of colour that rises out of it and ends in a star. */
+export function logoBookSwirl(size: number, label: string): string {
+  const num = (x: number, y: number, t: string) => `<text x="${x}" y="${y}" font-size="8" font-weight="700" font-family="Fredoka, sans-serif" fill="#3a2a1a" text-anchor="middle" dominant-baseline="central">${t}</text>`;
+  return `
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
+  <defs>${GOLD('lbs-gold')}
+    <linearGradient id="lbs-swirl" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9d7ae6"/><stop offset=".33" stop-color="#ef476f"/><stop offset=".66" stop-color="#ffd166"/><stop offset="1" stop-color="#06d6a0"/></linearGradient>
+    <linearGradient id="lbs-pageL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fbf1dc"/><stop offset=".85" stop-color="#fffaf0"/><stop offset="1" stop-color="#e9d6b0"/></linearGradient>
+    <linearGradient id="lbs-pageR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fbf1dc"/><stop offset=".85" stop-color="#fffaf0"/><stop offset="1" stop-color="#e9d6b0"/></linearGradient>
+    <linearGradient id="lbs-cover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a4520"/><stop offset="1" stop-color="#4b2a12"/></linearGradient>
+    <radialGradient id="lbs-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe6a6" stop-opacity=".45"/><stop offset="1" stop-color="#ffe6a6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="120" cy="112" r="112" fill="url(#lbs-glow)"/>
+  <ellipse cx="120" cy="214" rx="90" ry="7" fill="#000" opacity=".28"/>
+  <!-- the open book -->
+  <path d="M24 150 L 120 158 L 216 150 L 214 206 L 120 214 L 26 206 Z" fill="url(#lbs-cover)" stroke="url(#lbs-gold)" stroke-width="2"/>
+  <path d="M30 146 C 62 136, 98 138, 120 152 V 204 C 98 192, 62 192, 32 200 Z" fill="url(#lbs-pageL)" stroke="#c9a36a"/>
+  <path d="M210 146 C 178 136, 142 138, 120 152 V 204 C 142 192, 178 192, 208 200 Z" fill="url(#lbs-pageR)" stroke="#c9a36a"/>
+  <!-- left page: a flower half coloured; right page: lines and numbers -->
+  <g stroke="#3b2a1e" stroke-width="1.3">
+    <circle cx="74" cy="168" r="6" fill="#ffd166"/>
+    <ellipse cx="74" cy="158" rx="5" ry="7" fill="#ef476f"/><ellipse cx="84" cy="168" rx="7" ry="5" fill="#ef476f"/>
+    <ellipse cx="74" cy="178" rx="5" ry="7" fill="#fffaf0"/><ellipse cx="64" cy="168" rx="7" ry="5" fill="#fffaf0"/>
+    <path d="M150 186 q14 -16 28 0 q14 -16 28 0" fill="none"/><circle cx="168" cy="164" r="9" fill="#fffaf0"/>
+  </g>
+  ${num(74, 178, '2')}${num(64, 168, '2')}${num(168, 164, '5')}${num(164, 186, '3')}
+  <!-- the colour swirl the marker draws, rising out of the book -->
+  <path d="M120 150 C 92 128, 84 92, 112 74 C 140 58, 168 82, 152 104 C 138 122, 110 108, 124 88 C 136 70, 164 52, 176 34" fill="none" stroke="url(#lbs-swirl)" stroke-width="11" stroke-linecap="round"/>
+  <g fill="url(#lbs-gold)" stroke="#b07a26" stroke-width=".8">${star(182, 26, 13, 'sb')}</g>
+  <!-- the marker, cap off, nib on the swirl -->
+  <g transform="translate(124 152) rotate(-38)">
+    <path d="M-6 6 L 0 -4 L 6 6 Z" fill="#9d7ae6" stroke="#3b2a1e" stroke-width="1"/>
+    <rect x="-8" y="6" width="16" height="12" rx="2" fill="#e9e1d4" stroke="#3b2a1e" stroke-width="1"/>
+    <rect x="-9" y="18" width="18" height="54" rx="5" fill="#9d7ae6" stroke="#3b2a1e" stroke-width="1.2"/>
+    <rect x="-9" y="40" width="18" height="10" fill="url(#lbs-gold)"/>
+  </g>
+  <g fill="url(#lbs-gold)" stroke="#b07a26" stroke-width=".5">${star(40, 52, 7, 's1')}${star(212, 104, 6, 's2')}${star(70, 110, 4, 's3')}</g>
+</svg>`;
+}

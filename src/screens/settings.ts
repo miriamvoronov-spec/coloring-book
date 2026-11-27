@@ -216,6 +216,7 @@ export function settingsScreen(el: HTMLElement) {
   const credits = h('ul', { class: 'credits' },
     h('li', {}, 'הגופן Waltograph מאת mickeyavenue.com, לשימוש אישי ולא מסחרי (CC BY-NC-SA 1.0)'),
     h('li', {}, 'גופני Google Fonts: Heebo, Suez One, Secular One, Bellefair, Amatic SC, Karantina, Fredoka (SIL Open Font License)'),
+    h('li', {}, 'הכתבים "קסם" בעברית: נבנו לאפליקציה מתוך Fredoka, Playpen Sans Hebrew ו-Gveret Levin (SIL Open Font License). כתבי שם האפליקציה Great Vibes, Princess Sofia, Dancing Script, Parisienne, Pacifico, Lobster, Cinzel Decorative, Mountains of Christmas (SIL Open Font License)'),
     h('li', {}, 'מוזיקה: 30 יצירות מקוריות שהאפליקציה מלחינה בזמן אמת, בלי תמלוגים. שירים שהוספת בעצמך נשארים רק במכשיר שלך'),
     h('li', {}, 'צלילי הדפדוף: הקלטות של דפי ספר אמיתיים מאת Kenney ("RPG Audio", ‏CC0)'),
     h('li', {}, 'pdf.js מאת Mozilla (Apache 2.0), jsPDF (MIT), fflate (MIT)'),

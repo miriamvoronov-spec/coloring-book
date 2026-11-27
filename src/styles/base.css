@@ -1,4 +1,6 @@
 @font-face { font-family: 'Miriam Magic'; src: url('../assets/fonts/miriam-magic.woff2') format('woff2'); font-display: swap; unicode-range: U+0590-05FF; }
+@font-face { font-family: 'Miriam Magic Play'; src: url('../assets/fonts/miriam-magic-play.woff2') format('woff2'); font-display: swap; unicode-range: U+0590-05FF; }
+@font-face { font-family: 'Miriam Magic Hand'; src: url('../assets/fonts/miriam-magic-hand.woff2') format('woff2'); font-display: swap; unicode-range: U+0590-05FF; }
 @font-face { font-family: 'Waltograph'; src: url('../assets/fonts/waltograph42.woff2') format('woff2'); font-display: swap; }
 
 /* Layout: one screen at a time, full height; a candle-lit walnut library with paper and gold.
@@ -719,12 +721,12 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .spreadview { position: absolute; inset: 0; display: grid; place-items: center; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .tome { --pw: 300px; --ph: 420px; --cover: #6b3a1f; position: relative; width: calc(var(--pw) * 2); height: var(--ph); perspective: 3600px; transition: width .35s ease, height .35s ease; }
 /* leather binding: warm, grained, a little worn at the corners */
-.tome__board { position: absolute; inset: calc(var(--ph) * -0.03) calc(var(--ph) * -0.035); border-radius: 10px 12px 12px 10px;
+.tome__board { position: absolute; inset: calc(var(--ph) * -0.045) calc(var(--ph) * -0.05); border-radius: 10px 12px 12px 10px;
   background:
-    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(20,8,0,.55)),
-    linear-gradient(90deg, rgba(0,0,0,.25), transparent 8%, transparent 92%, rgba(0,0,0,.25)),
+    radial-gradient(120% 90% at 50% 45%, transparent 65%, rgba(0,0,0,.35)),
+    linear-gradient(90deg, rgba(0,0,0,.18), transparent 8%, transparent 92%, rgba(0,0,0,.18)),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .2  0 0 0 0 .12  0 0 0 0 .05  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
-    linear-gradient(160deg, color-mix(in srgb, var(--cover) 88%, #fff2d8), var(--cover) 50%, color-mix(in srgb, var(--cover) 70%, #000));
+    linear-gradient(160deg, color-mix(in srgb, var(--cover) 85%, #fff), var(--cover) 50%, color-mix(in srgb, var(--cover) 80%, #000));
   box-shadow: 0 26px 50px rgba(0,0,0,.55), inset 0 0 0 2px rgba(214,170,90,.35), inset 0 0 0 7px rgba(0,0,0,.18), inset 0 0 0 8px rgba(214,170,90,.25); }
 .tome__side { position: absolute; top: 0; width: var(--pw); height: var(--ph); overflow: hidden; container-type: size;
   background:
@@ -761,7 +763,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .tpage .book3d__mark .logo-mark { width: 19cqh; height: auto; }
 .tpage .book3d__frame::before, .tpage .book3d__frame::after { font-size: 3cqh; background: #f4e8cc; }
 .tpage .book3d__frame { box-shadow: inset 0 0 0 5px rgba(255,250,240,.0), inset 0 0 0 6px rgba(201,153,63,.6); }
-.tpage--plate { display: grid; place-items: center; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><path d='M18 8 L20 16 L28 18 L20 20 L18 28 L16 20 L8 18 L16 16Z' fill='%23c9993f' opacity='.16'/></svg>"), radial-gradient(120% 90% at 50% 40%, color-mix(in srgb, var(--cover) 45%, #9a6a3a), color-mix(in srgb, var(--cover) 40%, #2a1406)); }
+.tpage--plate { display: grid; place-items: center; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><path d='M18 8 L20 16 L28 18 L20 20 L18 28 L16 20 L8 18 L16 16Z' fill='%23c9993f' opacity='.16'/></svg>"), radial-gradient(120% 90% at 50% 40%, color-mix(in srgb, var(--cover) 85%, #fff), var(--cover) 60%, color-mix(in srgb, var(--cover) 75%, #000)); }
 .tpage--plate .bookplate { background: #f6ecd2; border: 2px solid #c9993f; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
 /* the turning leaf */
 .tleaf { position: absolute; top: 0; width: var(--pw); height: var(--ph); transform-style: preserve-3d; z-index: 6; pointer-events: none; }
@@ -836,3 +838,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 body:has(.settings) .player { display: none; }
 /* printed books bring their own white margins: the page art fills the leaf */
 .spreadview--scan .tpage__art { inset: 1.8% 2.2% 4.2%; }
+/* the book's cover colour around it: a soft glow behind the open book, a tinted spine and page edges */
+.reader--browse { background: radial-gradient(70% 60% at 50% 50%, color-mix(in srgb, var(--cover, transparent) 38%, transparent), transparent 75%); }
+.tome__spine { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cover) 25%, rgba(40,20,5,.2)) 35%, color-mix(in srgb, var(--cover) 55%, rgba(0,0,0,.45)) 50%, color-mix(in srgb, var(--cover) 25%, rgba(40,20,5,.2)) 65%, transparent); }
+.tome__edge { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cover) 50%, transparent); }

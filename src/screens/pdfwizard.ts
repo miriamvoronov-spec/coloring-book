@@ -6,7 +6,7 @@ import type { MarginMode } from '../app/margins';
 import { addCategory, go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
-import { guessKind, KIND_HE, openPdf, renderPage, type PdfDoc, type PdfKind } from '../app/pdfimport';
+import { guessKind, imagesAsDoc, KIND_HE, openPdf, renderPage, type PdfDoc, type PdfKind } from '../app/pdfimport';
 import { appBar } from '../ui/appbar';
 import { h, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
@@ -18,18 +18,25 @@ function sizeHe(bytes: number): string {
   return bytes > 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 }
 
-export function pdfWizard(file: File, preferred?: Category) {
-  go((el) => wizardScreen(el, file, preferred), 'forward');
+/** A PDF, or pictures of the pages (PNG, JPG…), one file per page. */
+export function pdfWizard(files: File | File[], preferred?: Category) {
+  const list = Array.isArray(files) ? files : [files];
+  go((el) => wizardScreen(el, list, preferred), 'forward');
 }
 
-function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
+const isPdf = (f: File) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+
+function wizardScreen(el: HTMLElement, files: File[], preferred?: Category) {
+  const pdfFile = files.find(isPdf);
+  const images = files.filter((f) => !isPdf(f) && (f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name)));
+  const file = pdfFile ?? images[0];
   let doc: PdfDoc | null = null;
   let kinds: PdfKind[] = [];
   let stop = false;
   const abort = new AbortController();
   const leave = (to: () => void) => { stop = true; abort.abort(); void doc?.destroy(); to(); };
 
-  const title = h('input', { class: 'field', id: 'pdf-title', value: file.name.replace(/\.pdf$/i, ''), maxlength: 80, dir: 'auto' }) as HTMLInputElement;
+  const title = h('input', { class: 'field', id: 'pdf-title', value: pdfFile ? file.name.replace(/\.pdf$/i, '') : 'חוברת חדשה', maxlength: 80, dir: 'auto' }) as HTMLInputElement;
   const catSel = h('select', { class: 'field', id: 'pdf-cat' }) as HTMLSelectElement;
   const newCat = h('input', { class: 'field', id: 'pdf-newcat', placeholder: 'שם הקטגוריה החדשה', maxlength: 40, hidden: true }) as HTMLInputElement;
   const dir = h('select', { class: 'field', id: 'pdf-dir' },
@@ -58,7 +65,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
   syncAi();
   catSel.addEventListener('change', () => { newCat.hidden = catSel.value !== '__new'; if (!newCat.hidden) newCat.focus(); });
 
-  const status = h('p', { class: 'wiz__status', role: 'status' }, `פותחת את הקובץ (${sizeHe(file.size)})…`);
+  const status = h('p', { class: 'wiz__status', role: 'status' }, pdfFile ? `פותחת את הקובץ (${sizeHe(file.size)})…` : `${images.length} תמונות של דפים…`);
   const bar = h('div', { class: 'wiz__bar' }, h('span', {}));
   const grid = h('div', { class: 'wiz__grid' });
   const go1 = h('button', { class: 'btn btn--gold wiz__go', type: 'button', disabled: true }, 'הוספה למדף ✨');
@@ -71,7 +78,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
   };
 
   el.append(h('main', { class: 'wiz' },
-    appBar({ title: 'הוספת חוברת מ-PDF', back: { label: 'ביטול', to: () => leave(() => go(preferred ? (r) => shelfScreen(r, preferred) : categoriesScreen, 'back')) } }),
+    appBar({ title: pdfFile ? 'הוספת חוברת מ-PDF' : 'הוספת חוברת מתמונות', back: { label: 'ביטול', to: () => leave(() => go(preferred ? (r) => shelfScreen(r, preferred) : categoriesScreen, 'back')) } }),
     h('div', { class: 'wiz__body' },
       h('section', { class: 'set-card wiz__form' },
         h('label', { for: 'pdf-title', class: 'set-label' }, 'שם החוברת'), title,
@@ -91,10 +98,10 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
     catSel.value = preferred?.id ?? cats.find((c) => c.role === 'imported')?.id ?? cats[0]?.id ?? '__new';
     newCat.hidden = catSel.value !== '__new';
     try {
-      doc = await openPdf(file);
+      doc = pdfFile ? await openPdf(pdfFile) : imagesAsDoc(images);
     } catch (e) { status.textContent = e instanceof Error ? e.message : 'לא הצלחתי לפתוח את הקובץ'; return; }
     const n = doc.numPages;
-    kinds = new Array(n).fill('coloring'); kinds[0] = 'cover'; if (n > 1) kinds[n - 1] = 'back';
+    kinds = new Array(n).fill('coloring'); if (pdfFile || n > 2) { kinds[0] = 'cover'; if (n > 1) kinds[n - 1] = 'back'; }
     status.textContent = `${n} עמודים. מכינה תמונות קטנות…`;
     const tiles: HTMLButtonElement[] = [];
     for (let i = 0; i < n; i++) {
@@ -109,7 +116,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
     for (let i = 0; i < n && !stop; i++) {
       try {
         const c = await renderPage(doc, i + 1, 220);
-        kinds[i] = guessKind(i, n, c);
+        kinds[i] = pdfFile || n > 2 ? guessKind(i, n, c) : 'coloring';
         c.className = 'wiz__img';
         tiles[i].querySelector('.wiz__thumb')!.replaceChildren(c);
       } catch (e) { console.error(e); }

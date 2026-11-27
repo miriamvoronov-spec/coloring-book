@@ -23,15 +23,16 @@ export const CUR_SHELF: Category = { id: VIRTUAL_CUR, name: 'חוברות נוכ
 export function shelfScreen(el: HTMLElement, cat: Category) {
   const virtual = cat.id === VIRTUAL_FAV || cat.id === VIRTUAL_CUR;
   const shelves = h('div', { class: 'shelves' });
-  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf', hidden: true });
-  const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 הוספת חוברת PDF');
+  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf,image/*', multiple: true, hidden: true });
+  const importBtn = h('button', { class: 'btn btn--gold', type: 'button', title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF או תמונות)');
   importBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
     const files = [...(fileInput.files ?? [])];
     fileInput.value = '';
     if (!files.length) return;
     const pdf = files.find((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
-    if (pdf) { const { pdfWizard } = await import('./pdfwizard'); pdfWizard(pdf, cat); return; }
+    const pics = files.filter((f) => f.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(f.name));
+    if (pdf || pics.length) { const { pdfWizard } = await import('./pdfwizard'); pdfWizard(pdf ? [pdf] : pics, cat); return; }
     const status = h('div', { class: 'busy', role: 'status' }, h('div', { class: 'busy__spin' }), h('p', {}, 'מייבאת את החוברת…'));
     document.body.append(status);
     try {
