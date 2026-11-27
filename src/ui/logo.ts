@@ -41,6 +41,7 @@ export function logoMark(size = 220): string {
   <path d="M120 176 C 144 160, 182 158, 218 166 L 218 88 C 184 78, 146 80, 120 96 Z" fill="url(#lg-pageR)" stroke="#cfb07a" stroke-width="1.2"/>
   <path d="M120 96 L 120 176" stroke="#c9a36a" stroke-width="1.4" opacity=".7"/>
   <!-- a little castle to colour by numbers on the left page -->
+  <g transform="translate(71 138) scale(.78) translate(-72 -118)">
   <g stroke="#3b2a1e" stroke-width="1.5" stroke-linejoin="round" fill="none">
     <path d="M64 104 L72 86 L80 104 Z" fill="#f7a8c4"/>
     <rect x="65" y="104" width="14" height="44" fill="#fff"/>
@@ -55,14 +56,11 @@ export function logoMark(size = 220): string {
   <g font-family="Fredoka, 'Varela Round', sans-serif" font-weight="700" font-size="7" fill="#3b2a1e" text-anchor="middle">
     <text x="72" y="119">3</text><text x="90" y="111">1</text><text x="90" y="133">2</text><text x="64" y="136">4</text><text x="72" y="136">4</text>
   </g>
-  <!-- stardust ribbon rising from the pencil tip -->
-  <path d="M142 132 C 150 112, 176 124, 178 104 C 180 86, 160 84, 168 68 C 176 52, 200 56, 206 40" fill="none" stroke="url(#lg-dust)" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M142 132 C 150 112, 176 124, 178 104 C 180 86, 160 84, 168 68 C 176 52, 200 56, 206 40" fill="none" stroke="#fffbe8" stroke-width="1" stroke-linecap="round" opacity=".8"/>
-  <g fill="#fff3c4">
-    <path class="logo-star s1" d="M206 26 l3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3z"/>
-    <path class="logo-star s2" d="M182 84 l2 5.5 5.5 2 -5.5 2 -2 5.5 -2 -5.5 -5.5 -2 5.5 -2z"/>
-    <path class="logo-star s3" d="M156 98 l1.6 4.4 4.4 1.6 -4.4 1.6 -1.6 4.4 -1.6 -4.4 -4.4 -1.6 4.4 -1.6z"/>
-    <circle cx="190" cy="62" r="1.6"/><circle cx="170" cy="112" r="1.3"/><circle cx="214" cy="54" r="1.2"/><circle cx="160" cy="76" r="1.1"/>
+  </g>
+  <!-- a trail of twinkling stars rising from the pencil tip -->
+  <g fill="url(#lg-gold)" stroke="#b07a26" stroke-width=".5">
+    <path class="logo-star s1" d="M150 114.8 Q150.512 117.488 153.2 118 Q150.512 118.512 150 121.2 Q149.488 118.512 146.8 118 Q149.488 117.488 150 114.8Z"/><path class="logo-star s2" d="M160 99.8 Q160.672 103.328 164.2 104 Q160.672 104.672 160 108.2 Q159.328 104.672 155.8 104 Q159.328 103.328 160 99.8Z"/><path class="logo-star s3" d="M172 86.8 Q172.832 91.168 177.2 92 Q172.832 92.832 172 97.2 Q171.168 92.832 166.8 92 Q171.168 91.168 172 86.8Z"/><path class="logo-star s4" d="M182 74.4 Q182.576 77.424 185.6 78 Q182.576 78.576 182 81.6 Q181.424 78.576 178.4 78 Q181.424 77.424 182 74.4Z"/><path class="logo-star s1" d="M190 55.6 Q191.024 60.976 196.4 62 Q191.024 63.024 190 68.4 Q188.976 63.024 183.6 62 Q188.976 60.976 190 55.6Z"/><path class="logo-star s2" d="M198 43.6 Q198.704 47.296 202.4 48 Q198.704 48.704 198 52.4 Q197.296 48.704 193.6 48 Q197.296 47.296 198 43.6Z"/><path class="logo-star s3" d="M208 25.5 Q209.36 32.64 216.5 34 Q209.36 35.36 208 42.5 Q206.64 35.36 199.5 34 Q206.64 32.64 208 25.5Z"/>
+    <circle cx="155" cy="112" r="1.2" fill="#e9b94f" stroke="none"/><circle cx="166" cy="99" r="1.4" fill="#e9b94f" stroke="none"/><circle cx="178" cy="86" r="1.1" fill="#e9b94f" stroke="none"/><circle cx="186" cy="70" r="1.5" fill="#e9b94f" stroke="none"/><circle cx="195" cy="55" r="1.2" fill="#e9b94f" stroke="none"/><circle cx="203" cy="42" r="1.3" fill="#e9b94f" stroke="none"/><circle cx="214" cy="46" r="1.0" fill="#e9b94f" stroke="none"/><circle cx="196" cy="72" r="0.9" fill="#e9b94f" stroke="none"/><circle cx="170" cy="108" r="0.9" fill="#e9b94f" stroke="none"/>
   </g>
   <!-- coloured pencil resting on the right page -->
   <g transform="translate(142 134) rotate(38)">

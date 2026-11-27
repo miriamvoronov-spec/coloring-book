@@ -82,57 +82,129 @@ const pluck = (m: number, t: number, v = 0.1) => { voice('triangle', m, t, 0.003
 const bass = (m: number, t: number, len: number, v = 0.12) => voice('sine', m, t, 0.02, v, len, 0.15);
 const strings = (m: number, t: number, len: number, v = 0.035) => { voice('sawtooth', m, t, len * 0.3, v, len, 0.9, -5, 1600); voice('sawtooth', m, t, len * 0.3, v, len, 0.9, 6, 1600); };
 
+// more voices
+const piano = (m: number, t: number, v = 0.09, len = 1.6) => { voice('triangle', m, t, 0.006, v, len, 0.55, 0, 2600); voice('sine', m + 12, t, 0.006, v * 0.25, len * 0.6, 0.55); };
+const marimba = (m: number, t: number, v = 0.1) => { voice('sine', m, t, 0.003, v, 0.45, 0.3); voice('sine', m + 24, t, 0.003, v * 0.15, 0.12, 0.3); };
+function flute(m: number, t: number, len: number, v = 0.06) {
+  const c = ctx!;
+  const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = hz(m);
+  const lfo = c.createOscillator(); lfo.frequency.value = 5.2; const lg = c.createGain(); lg.gain.value = hz(m) * 0.006;
+  lfo.connect(lg); lg.connect(o.frequency);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.09);
+  g.gain.setValueAtTime(v, t + Math.max(0.1, len - 0.12)); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.25);
+  o.connect(g); const s1 = c.createGain(); s1.gain.value = 0.7; g.connect(s1); s1.connect(dry); const s2 = c.createGain(); s2.gain.value = 0.6; g.connect(s2); s2.connect(wet);
+  o.start(t); lfo.start(t); o.stop(t + len + 0.3); lfo.stop(t + len + 0.3);
+}
+
 // ---------------- composition ----------------
 function rng(seed: number) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32); }
 
-const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10], PENTA = [0, 2, 4, 7, 9];
-const PROGS = [[0, 5, 3, 4], [0, 3, 4, 3], [0, 4, 5, 3], [5, 3, 0, 4], [0, 2, 3, 4], [0, 5, 1, 4]];
-
-interface Piece { root: number; scale: number[]; prog: number[]; bpm: number; beats: number; r: () => number }
-
-function piece(ch: Channel, i: number): Piece {
-  const r = rng(ch.length * 1000 + i * 77 + 13);
-  const root = 50 + [0, 2, 3, 5, 7, 8, 10, 1, 4, 6][i % 10];
-  const minor = ch === 'focus' ? i % 3 === 1 : ch === 'fairy' ? i % 4 === 3 : false;
-  const bpm = ch === 'focus' ? 54 + (i % 4) * 4 : ch === 'fairy' ? 84 + (i % 5) * 6 : 104 + (i % 5) * 8;
-  return { root, scale: minor ? MINOR : MAJOR, prog: PROGS[(i * 7) % PROGS.length], bpm, beats: ch === 'fairy' ? 3 : 4, r };
-}
+const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10];
+/** Eight-bar progressions (scale degrees, 0 = I). */
+const PROGS8 = [
+  [0, 5, 3, 4, 0, 5, 1, 4], [0, 3, 0, 4, 5, 3, 1, 4], [0, 2, 3, 0, 3, 4, 0, 4], [5, 3, 0, 4, 5, 3, 1, 4],
+  [0, 4, 5, 2, 3, 0, 1, 4], [0, 3, 5, 4, 0, 3, 4, 4], [0, 5, 1, 4, 2, 5, 1, 4], [3, 4, 2, 5, 1, 4, 0, 0],
+];
+const RHYTHMS: Record<number, number[][]> = {
+  4: [[1, 1, 1, 1], [2, 1, 1], [1.5, 0.5, 2], [1, 0.5, 0.5, 2], [3, 1], [0.5, 0.5, 1, 2], [1, 1, 2], [2, 2]],
+  3: [[1, 1, 1], [2, 1], [1.5, 0.5, 1], [3], [1, 2], [0.5, 0.5, 2]],
+};
+type Note = { at: number; dur: number; deg: number };
+type Lead = 'piano' | 'flute' | 'bell' | 'harp' | 'marimba' | 'pluck';
+type Accomp = 'arpeggio' | 'waltz' | 'pad' | 'bounce' | 'alberti';
+interface Piece { root: number; scale: number[]; prog: number[]; bpm: number; beats: number; lead: Lead; accomp: Accomp; melody: Note[][]; r: () => number }
 
 const deg = (p: Piece, d: number, oct = 0) => p.root + oct * 12 + p.scale[((d % 7) + 7) % 7] + Math.floor(d / 7) * 12;
 
-/** Schedule one beat of the current piece. */
-function beat(ch: Channel, p: Piece, n: number, t: number) {
-  const spb = 60 / p.bpm;
-  const bar = Math.floor(n / p.beats), b = n % p.beats;
-  const chord = p.prog[bar % p.prog.length];
-  const triad = [deg(p, chord), deg(p, chord + 2), deg(p, chord + 4)];
-  if (ch === 'focus') {
-    if (b === 0 && bar % 2 === 0) { for (const m of triad) pad(m, t, spb * p.beats * 2); bass(deg(p, chord, -1), t, spb * p.beats * 2, 0.07); }
-    if (p.r() < 0.35) bell(deg(p, chord + [0, 2, 4, 7][Math.floor(p.r() * 4)], 1), t + spb * (p.r() < 0.5 ? 0 : 0.5), 0.05);
-  } else if (ch === 'fairy') {
-    if (b === 0) { strings(triad[0], t, spb * 3.2); strings(triad[1], t, spb * 3.2); strings(triad[2] + 12, t, spb * 3.2, 0.025); bass(deg(p, chord, -1), t, spb * 2.6, 0.11); }
-    else { harp(triad[b % 3] + 12, t, 0.06); harp(triad[(b + 1) % 3] + 12, t + spb / 2, 0.05); }
-    if (bar % 4 === 3 && b === 2) bell(deg(p, chord + 4, 2), t + spb / 2, 0.05);
-    if (p.r() < 0.4) bell(deg(p, chord + [0, 2, 4][b % 3], 2), t, 0.045);
+/** An original 16-bar tune in AA'BA form over the progression. */
+function compose(r: () => number, prog: number[], beats: number): Note[][] {
+  const phrase = (bars: number[], start: number): Note[][] => {
+    let cur = start;
+    return bars.map((chord, bi) => {
+      const rh = RHYTHMS[beats][Math.floor(r() * RHYTHMS[beats].length)];
+      const last = bi === bars.length - 1;
+      const pattern = last ? [beats] : rh;
+      let at = 0;
+      return pattern.map((dur, k) => {
+        const tones = [chord, chord + 2, chord + 4];
+        if (k === 0) cur = tones.reduce((a, t) => (Math.abs(t - cur) < Math.abs(a - cur) ? t : a), tones[0]);
+        else { const step = r() < 0.7 ? (r() < 0.5 ? 1 : -1) : (r() < 0.5 ? 2 : -2); cur = Math.max(-2, Math.min(9, cur + step)); }
+        const n = { at, dur, deg: cur }; at += dur; return n;
+      });
+    });
+  };
+  const A = phrase(prog.slice(0, 4), 4);
+  const A2 = A.slice(0, 3).concat(phrase(prog.slice(7, 8), A[3][0].deg));
+  const B = phrase(prog.slice(4, 8), 7);
+  return [...A, ...A2.map((bar, i) => (i < 3 ? bar : bar)), ...B, ...A];
+}
+
+function piece(ch: Channel, i: number): Piece {
+  const r = rng(ch.charCodeAt(0) * 7919 + i * 104729 + 17);
+  const keys = [0, 5, 7, 2, 10, 3, 8, 1, 4, 9];
+  const root = 53 + keys[i % 10];
+  let beats = 4, bpm = 72, lead: Lead = 'piano', accomp: Accomp = 'arpeggio', minor = false;
+  if (ch === 'fairy') {
+    beats = [4, 3, 4, 3, 4, 4, 3, 4, 3, 4][i]; bpm = beats === 3 ? 96 + (i % 3) * 8 : 66 + (i % 4) * 5;
+    lead = (['piano', 'flute', 'piano', 'harp', 'flute', 'piano', 'bell', 'flute', 'piano', 'harp'] as Lead[])[i];
+    accomp = beats === 3 ? 'waltz' : (['arpeggio', 'alberti'] as Accomp[])[i % 2]; minor = i === 7;
+  } else if (ch === 'focus') {
+    beats = 4; bpm = 54 + (i % 5) * 4; lead = (['piano', 'bell', 'flute', 'piano', 'harp'] as Lead[])[i % 5]; accomp = i % 2 ? 'pad' : 'arpeggio'; minor = i % 3 === 1;
   } else {
-    if (b === 0 || b === 2) bass(deg(p, chord, -1), t, spb * 0.8, 0.13);
-    pluck(triad[(n * 2) % 3] + 12, t, 0.07);
-    if (p.r() < 0.55) pluck(deg(p, PENTA[Math.floor(p.r() * 5)] + chord, 2), t + spb / 2, 0.06);
-    if (b === 3 && bar % 2 === 1) bell(deg(p, chord + 4, 2), t + spb / 2, 0.04);
+    beats = i % 4 === 3 ? 3 : 4; bpm = beats === 3 ? 140 : 108 + (i % 5) * 7; lead = (['marimba', 'pluck', 'bell', 'marimba', 'flute'] as Lead[])[i % 5]; accomp = beats === 3 ? 'waltz' : 'bounce';
   }
+  const prog = PROGS8[(i * 3 + ch.length) % PROGS8.length];
+  return { root, scale: minor ? MINOR : MAJOR, prog, bpm, beats, lead, accomp, melody: compose(r, prog, beats), r };
+}
+
+/** Schedule one bar of the current piece. */
+function bar(ch: Channel, p: Piece, n: number, t: number) {
+  const spb = 60 / p.bpm, barLen = spb * p.beats;
+  const form = n % 16, round = Math.floor(n / 16);
+  const chord = p.prog[form % 8];
+  const triad = [deg(p, chord), deg(p, chord + 2), deg(p, chord + 4)];
+  const soft = ch === 'focus' ? 0.6 : 1;
+  // accompaniment
+  if (p.accomp === 'pad' || ch !== 'playful') for (const m of triad) (ch === 'focus' ? pad : strings)(m, t, barLen * 1.05, ch === 'focus' ? 0.035 : 0.022);
+  bass(deg(p, chord, -1), t, barLen * 0.9, 0.1 * soft);
+  if (p.accomp === 'arpeggio') {
+    const arp = [triad[0], triad[1], triad[2], triad[0] + 12, triad[2], triad[1], triad[2], triad[0] + 12];
+    for (let k = 0; k < p.beats * 2; k++) piano(arp[k % arp.length], t + k * spb / 2, 0.035 * soft, 1.2);
+  } else if (p.accomp === 'alberti') {
+    const al = [triad[0], triad[2], triad[1], triad[2]];
+    for (let k = 0; k < p.beats * 2; k++) piano(al[k % 4], t + k * spb / 2, 0.03, 1);
+  } else if (p.accomp === 'waltz') {
+    for (let k = 1; k < 3; k++) { piano(triad[1], t + k * spb, 0.035, 0.6); piano(triad[2], t + k * spb, 0.03, 0.6); }
+  } else if (p.accomp === 'bounce') {
+    for (let k = 0; k < p.beats; k++) { bass(deg(p, chord + (k % 2 ? 4 : 0), -1), t + k * spb, spb * 0.5, 0.1); marimba(triad[(k + 1) % 3], t + k * spb + spb / 2, 0.045); }
+  }
+  // melody: first time through a little softer, the second fuller and an octave up for the B part
+  const up = round % 2 === 1 && form >= 8 && form < 12 ? 12 : 0;
+  for (const note of p.melody[form]) {
+    const m = deg(p, note.deg, 1) + up, at = t + note.at * spb, len = note.dur * spb;
+    const v = (round === 0 ? 0.8 : 1) * soft;
+    if (p.lead === 'piano') piano(m, at, 0.09 * v, Math.max(1, len * 1.4));
+    else if (p.lead === 'flute') flute(m, at, len * 0.95, 0.055 * v);
+    else if (p.lead === 'bell') bell(m, at, 0.07 * v);
+    else if (p.lead === 'harp') harp(m, at, 0.08 * v);
+    else if (p.lead === 'marimba') marimba(m, at, 0.1 * v);
+    else pluck(m, at, 0.09 * v);
+  }
+  if (form === 15 && ch !== 'playful') bell(deg(p, 0, 2), t + barLen - spb / 2, 0.035);
 }
 
 let current: Piece | null = null;
 let curCh: Channel = 'fairy';
-const PIECE_BEATS = 4 * 32; // about 1.5 to 3 minutes per piece
+const PIECE_BARS = 32; // the tune twice, about 1.5 to 3 minutes
 
 function tick() {
   if (!ctx || !current) return;
-  const spb = 60 / current.bpm;
-  while (nextTime < ctx.currentTime + 0.6) {
-    beat(curCh, current, step, nextTime);
-    nextTime += spb; step++;
-    if (step >= PIECE_BEATS) { next(); return; }
+  const barLen = (60 / current.bpm) * current.beats;
+  while (nextTime < ctx.currentTime + 0.8) {
+    if (step >= PIECE_BARS) { clearInterval(timer); timer = 0; setTimeout(() => void next(), Math.max(0, (nextTime - ctx.currentTime) * 1000 + 1500)); return; }
+    bar(curCh, current, step, nextTime);
+    nextTime += barLen; step++;
   }
 }
 

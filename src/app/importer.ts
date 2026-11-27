@@ -11,14 +11,14 @@ import type { BookMeta, Category, Label, LegendEntry, PageKind, PageRec } from '
 export const MAX_SIDE = 2800;
 const COVER_SIDE = 1600;
 
-interface ManifestPage {
+export interface ManifestPage {
   kind?: PageKind | 'solution';
   lines?: string; image?: string; svg?: string;
   labels?: Label[]; legend?: LegendEntry[];
   numbersInImage?: boolean; solution?: string; title?: string;
   size?: { width: number; height: number };
 }
-interface Manifest {
+export interface Manifest {
   format?: string; version?: number; title?: string; direction?: 'ltr' | 'rtl'; coverColor?: string;
   pages: ManifestPage[];
 }
@@ -129,7 +129,7 @@ type Entry = { name: string; blob: Blob };
 
 function baseName(n: string) { return n.split('/').pop()!.replace(/\.[^.]+$/, ''); }
 
-async function fromEntries(entries: Entry[], jsonByName: Map<string, unknown>, manifest: Manifest | null, cat: Category,
+export async function fromEntries(entries: Entry[], jsonByName: Map<string, unknown>, manifest: Manifest | null, cat: Category,
   fallbackTitle: string, progress: (m: string) => void, cleanLoose: boolean): Promise<BookMeta> {
   const bookId = uid('b');
   const byName = new Map(entries.map((e) => [e.name, e.blob]));

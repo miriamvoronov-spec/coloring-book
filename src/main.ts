@@ -13,7 +13,7 @@ document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';
 applySettings();
 initApp(app);
-void whenSeeded();
+void whenSeeded().then(async () => { const { loadSampleBooks } = await import('./app/samples'); await loadSampleBooks(); });
 go(splashScreen, 'fade');
 mountIdeaFab();
 mountPlayer();
