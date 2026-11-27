@@ -116,6 +116,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       },
     });
     engine.drawEnabled = coloring;
+    engine.linesVisible = linesShown; engine.linesOpacity = linesOpacity; engine.numbersVisible = numbersShown;
     return { el: engine.el, aspect: page.width / page.height, engine, page, snapshot: () => engine.snapshot(1200), destroy: () => engine.destroy() };
   };
   const makeSurface = (e: Entry) => e.kind === 'cover' ? coverSurface() : e.kind === 'congrats' ? Promise.resolve(congratsSurface()) : pageSurface(e.id);
@@ -208,18 +209,36 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     toolbar?.update();
   }
 
+  /** Full palette that is always at hand, next to the page's legend. */
+  const BASIC = [
+    '#000000', '#4a4a4a', '#8c8c8c', '#d0d0d0', '#ffffff',
+    '#7f1d1d', '#d62828', '#ef476f', '#ff8fab', '#ffc2d1',
+    '#9a3412', '#f77f00', '#ff9f1c', '#fcbf49', '#ffe066',
+    '#fff3b0', '#606c38', '#3a9d5d', '#80b918', '#b5e48c',
+    '#2a9d8f', '#83e3d9', '#03045e', '#1d4ed8', '#4895ef',
+    '#8fd3f4', '#3c096c', '#7b2cbf', '#c77dff', '#e0aaff',
+    '#5a3218', '#a0522d', '#d4a373', '#f1d3b3', '#e9c46a',
+  ];
+  function chip(hex: string, label?: string) {
+    const b = h('button', { class: 'legend__chip' + (label ? '' : ' legend__chip--plain'), type: 'button', 'aria-label': label ? `צבע מספר ${label}` : hex, title: hex, 'data-c': hex.toLowerCase() },
+      h('span', { class: 'legend__dot' }), label ? h('span', { class: 'legend__num' }, label) : null);
+    (b.firstElementChild as HTMLElement).style.background = hex;
+    b.addEventListener('click', () => { setColor(hex); if (!coloring) setColoring(true); });
+    return b;
+  }
   function renderLegend() {
     legend.replaceChildren();
     const page = surface?.page;
-    legend.hidden = !page || !page.legend.length;
+    legend.hidden = !page;
     if (!page) return;
-    for (const e of page.legend) {
-      const b = h('button', { class: 'legend__chip', type: 'button', 'aria-label': `צבע מספר ${e.label}`, 'data-c': e.color.toLowerCase() },
-        h('span', { class: 'legend__dot' }), h('span', { class: 'legend__num' }, e.label));
-      (b.firstElementChild as HTMLElement).style.background = e.color;
-      b.addEventListener('click', () => { setColor(e.color); if (!coloring) setColoring(true); });
-      legend.append(b);
+    for (const e of page.legend) legend.append(chip(e.color, e.label));
+    const recent = prefs.get<string[]>('recent', []).filter((c) => !page.legend.some((e) => e.color.toLowerCase() === c.toLowerCase()));
+    if (page.legend.length) legend.append(h('span', { class: 'legend__sep', 'aria-hidden': 'true' }));
+    if (recent.length) {
+      for (const c of recent.slice(0, 6)) legend.append(chip(c));
+      legend.append(h('span', { class: 'legend__sep', 'aria-hidden': 'true' }));
     }
+    for (const c of BASIC) legend.append(chip(c));
     markLegend();
   }
   const markLegend = () => legend.querySelectorAll<HTMLElement>('.legend__chip').forEach((c) => c.classList.toggle('is-on', c.dataset.c === state.color.toLowerCase()));
@@ -294,11 +313,19 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   let numbersShown = true;
+  let linesShown = true;
+  let linesOpacity = 1;
+  const applyLines = () => { if (surface?.engine) { surface.engine.linesVisible = linesShown; surface.engine.linesOpacity = linesOpacity; } };
   function layersPanel(): HTMLElement {
     const nums = h('input', { type: 'checkbox', id: 'layer-numbers', checked: numbersShown });
     nums.addEventListener('change', () => { numbersShown = nums.checked; if (surface?.engine) surface.engine.numbersVisible = numbersShown; });
+    const lines = h('input', { type: 'checkbox', id: 'layer-lines', checked: linesShown });
+    lines.addEventListener('change', () => { linesShown = lines.checked; applyLines(); });
+    const linesOp = h('input', { type: 'range', class: 'slider', id: 'layer-lines-op', min: 10, max: 100, value: Math.round(linesOpacity * 100), 'aria-label': 'כהות הקווים' });
+    linesOp.addEventListener('input', () => { linesOpacity = Number(linesOp.value) / 100; applyLines(); });
     return h('div', { class: 'layers' },
-      h('div', { class: 'layers__row is-locked' }, h('span', {}, '🔒 קווים'), h('span', { class: 'muted' }, 'נעולה, תמיד למעלה')),
+      h('label', { class: 'layers__row', for: 'layer-lines' }, h('span', {}, 'קווים'), lines),
+      h('label', { class: 'layers__row', for: 'layer-lines-op' }, h('span', {}, 'כהות הקווים'), linesOp),
       h('label', { class: 'layers__row', for: 'layer-numbers' }, h('span', {}, 'מספרים'), nums),
       h('div', { class: 'layers__row' }, h('span', {}, 'צבע'), h('span', { class: 'muted' }, 'שכבה 1')),
       h('p', { class: 'menu__hint' }, 'הוספה, שכפול ומצבי מיזוג של שכבות יגיעו בשלב הבא'));

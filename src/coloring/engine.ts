@@ -150,6 +150,8 @@ export class PageEngine {
   }
 
   set numbersVisible(v: boolean) { this.numbers.style.visibility = v ? '' : 'hidden'; }
+  set linesVisible(v: boolean) { this.lines.style.visibility = v ? '' : 'hidden'; }
+  set linesOpacity(v: number) { this.lines.style.opacity = String(v); }
 
   // ----- view -----
   layout(): void {

@@ -360,8 +360,10 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .congrats__sub { margin: 0; color: var(--gold-hi); font-size: 1.1em; }
 
 /* legend */
-.legend { display: flex; gap: 8px; overflow-x: auto; padding-block: 6px 10px; justify-content: center; scrollbar-width: thin; }
-@media (max-width: 700px) { .legend { justify-content: flex-start; } }
+.legend { display: flex; gap: 8px; overflow-x: auto; padding-block: 6px 10px; justify-content: flex-start; scrollbar-width: thin; align-items: center; }
+.legend__chip--plain { min-width: 48px; padding: 0; justify-content: center; }
+.legend__chip--plain .legend__dot { width: 34px; height: 34px; }
+.legend__sep { flex: none; width: 1px; height: 34px; background: rgba(231,184,80,.4); margin-inline: 4px; }
 .legend__chip { flex: none; min-width: 48px; height: 48px; padding: 0 10px 0 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,241,184,.2); background: rgba(0,0,0,.28); }
 .legend__dot { width: 32px; height: 32px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(0,0,0,.25); }
 .legend__num { font-family: var(--font-num); font-weight: 700; font-size: 1.2rem; min-width: 1ch; }
@@ -421,7 +423,8 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .chip--num { font-family: var(--font-num); font-weight: 700; color: #1b1410; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .layers { display: grid; gap: 6px; min-width: 230px; }
 .layers__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 12px; background: rgba(0,0,0,.22); }
-.layers__row input { width: 24px; height: 24px; accent-color: var(--gold); }
+.layers__row input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--gold); }
+.layers__row .slider { width: 120px; flex: none; }
 
 /* solution */
 .solution { display: grid; gap: 10px; }
