@@ -430,7 +430,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); }
 .chip--num { font-family: var(--font-num); font-weight: 700; color: #1b1410; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
-.layers { display: grid; gap: 6px; min-width: 230px; }
+.layers { display: grid; gap: 6px; min-width: 280px; max-width: min(340px, 92vw); max-height: calc(100dvh - 120px); overflow-y: auto; overscroll-behavior: contain; }
 .layers__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 12px; background: rgba(0,0,0,.22); }
 .layers__row input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--gold); }
 .layers__row .slider { width: 120px; flex: none; }
@@ -736,7 +736,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .tpage__art { position: absolute; inset: 4.5% 5%; }
 .tpage__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .tpage__lines { mix-blend-mode: multiply; }
-.tpage__paint { mix-blend-mode: multiply; }
+.tpage__paint { mix-blend-mode: normal; }
 .tpage__no { position: absolute; bottom: 1.3%; left: 0; right: 0; text-align: center; font: italic 2.2cqh Bellefair, serif; color: #8a6a3a; }
 .tpage.cover { border-radius: 0; }
 .tpage .bookplate { font-size: 3.1cqh; }
@@ -775,3 +775,27 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .sol-over img, .sol-over canvas { width: 100%; height: 100%; object-fit: fill; }
 .sol-bar { white-space: nowrap; position: absolute; z-index: 6; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(43,26,16,.9); border: 1px solid rgba(233,196,106,.5); color: #f3d98a; font-size: .9rem; }
 .sol-bar input { width: 140px; }
+/* the page's colour squares, on request */
+.palwin { resize: none; width: min(300px, calc(100vw - 16px)); max-height: min(70vh, 640px); }
+.palwin__list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.palwin__row { display: grid; grid-template-columns: 2.4rem 1fr auto; align-items: center; gap: 10px; min-height: 48px; padding: 4px 8px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,248,230,.05); color: #f7ecd4; cursor: pointer; text-align: start; }
+.palwin__row:hover { background: rgba(255,248,230,.12); }
+.palwin__row.is-on { border-color: #e9c46a; background: rgba(233,196,106,.16); }
+.palwin__label { font-weight: 800; font-size: 1.25rem; text-align: center; color: #f3d98a; }
+.palwin__sw { height: 36px; border-radius: 8px; border: 1px solid rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+.palwin__hex { font-family: ui-monospace, monospace; font-size: .9rem; opacity: .85; }
+.pv__layers { pointer-events: none; }
+.pv__layers > canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* colour layers */
+.lyr__title { font-size: .8rem; letter-spacing: .04em; color: #e9c46a; margin: 6px 2px 2px; }
+.lyr__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow-y: auto; }
+.lyr__row { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,248,230,.05); cursor: pointer; min-height: 48px; }
+.lyr__row.is-active { border-color: #e9c46a; background: rgba(233,196,106,.16); }
+.lyr__thumb { width: 36px; height: auto; border-radius: 4px; border: 1px solid rgba(0,0,0,.3); flex: none; }
+.lyr__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; }
+.lyr__btn { width: 36px; height: 40px; border-radius: 8px; border: 0; background: transparent; color: inherit; font-size: 1rem; cursor: pointer; flex: none; }
+.lyr__btn:hover:not(:disabled) { background: rgba(255,248,230,.12); }
+.lyr__btn:disabled { opacity: .25; cursor: default; }
+.lyr__btn.is-off { opacity: .6; }
+.lyr__actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.lyr__rename { min-width: 0; flex: 1; }

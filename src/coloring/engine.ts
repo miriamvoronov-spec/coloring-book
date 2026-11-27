@@ -8,6 +8,13 @@ import { binarize, labelRegions, legendLabelFor, regionAt, regionMask, regionsFo
 import { store } from '../app/store';
 import type { PageRec } from '../app/types';
 import { drawSegment, type StrokePoint, type ToolName } from './brushes';
+import { activeAfterRemove, compositeOp, cssBlend, layerId, moveIn, nextName, type Blend, type LayerProps } from './layers';
+
+interface Layer extends LayerProps { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }
+/** A picture of the layer list, for undoing layer actions. */
+interface StructSnap { kind: 'struct'; list: LayerProps[]; active: number }
+type Snap = ImageData | StructSnap;
+const STRUCT = '__struct__';
 
 export interface ToolState {
   tool: ToolName;
@@ -25,6 +32,10 @@ export interface EngineEvents {
   onPenWhileReading?: () => boolean;
   onPick?: (hex: string | null) => void;
   onZoom?: (zoom: number) => void;
+  /** The layer list or the active layer changed. */
+  onLayers?: () => void;
+  /** She tried to colour on a locked layer. */
+  onLocked?: () => void;
 }
 
 /** Optional look for special pages, e.g. the free "well done" page in the cover colour. */
@@ -42,8 +53,11 @@ const MAX_ZOOM = 8;
 export class PageEngine {
   readonly el: HTMLDivElement;
   private stage: HTMLDivElement;
-  private color: HTMLCanvasElement;
-  private cctx: CanvasRenderingContext2D;
+  private layerBox: HTMLDivElement;
+  private layers: Layer[] = [];
+  private all = new Map<string, Layer>();
+  private activeIdx = 0;
+  private get cctx(): CanvasRenderingContext2D { return this.layers[this.activeIdx].ctx; }
   private stroke: HTMLCanvasElement;
   private sctx: CanvasRenderingContext2D;
   private lines: HTMLImageElement;
@@ -52,7 +66,7 @@ export class PageEngine {
   private linesUrl: string;
   readonly W: number;
   readonly H: number;
-  readonly history: History<ImageData>;
+  readonly history: History<Snap>;
   map: RegionMap | null = null;
   ready: Promise<void>;
   drawEnabled = false;
@@ -71,6 +85,7 @@ export class PageEngine {
   private dirty = false;
   private ro: ResizeObserver;
   lampValue: string | null = null;
+  private mapActive = -1;
 
   constructor(readonly page: PageRec, private tools: () => ToolState, private ev: EngineEvents = {}, private look: EngineLook = {}) {
     this.W = page.width; this.H = page.height;
@@ -80,11 +95,11 @@ export class PageEngine {
     this.stage.style.width = this.W + 'px';
     this.stage.style.height = this.H + 'px';
     const paper = mk('div', 'pv__paper');
-    this.color = mk('canvas', 'pv__color') as HTMLCanvasElement;
+    this.layerBox = mk('div', 'pv__layers') as HTMLDivElement;
     this.stroke = mk('canvas', 'pv__stroke') as HTMLCanvasElement;
-    for (const c of [this.color, this.stroke]) { c.width = this.W; c.height = this.H; }
-    this.cctx = this.color.getContext('2d', { willReadFrequently: true })!;
+    this.stroke.width = this.W; this.stroke.height = this.H;
     this.sctx = this.stroke.getContext('2d')!;
+    this.layers = [this.makeLayer({ id: layerId(), name: 'שכבה 1', visible: true, locked: false, opacity: 1, blend: 'normal' })];
     this.lines = mk('img', 'pv__lines') as HTMLImageElement;
     this.lines.alt = '';
     this.lines.draggable = false;
@@ -97,14 +112,19 @@ export class PageEngine {
     this.lamp.width = Math.round(this.W / 2); this.lamp.height = Math.round(this.H / 2);
     this.lamp.hidden = true;
     if (this.look.paper) paper.style.background = this.look.paper;
-    this.stage.append(paper, this.color, this.stroke, this.lines, this.lamp, this.numbers);
+    this.stage.append(paper, this.lines, this.layerBox, this.lamp, this.numbers);
+    this.restack();
     if (this.look.overlay) { this.look.overlay.classList.add('pv__overlay'); this.stage.append(this.look.overlay); }
     this.el.append(this.stage);
     this.renderNumbers();
 
-    this.history = new History<ImageData>({
-      read: (x, y, w, h) => this.cctx.getImageData(x, y, w, h),
-      write: (p: Patch<ImageData>) => { this.cctx.putImageData(p.data, p.x, p.y); this.scheduleSave(); },
+    this.history = new History<Snap>({
+      read: (x, y, w, h, layer) => (layer === STRUCT ? this.structSnap() : this.layerById(layer).ctx.getImageData(x, y, w, h)),
+      write: (p: Patch<Snap>) => {
+        if (p.layer === STRUCT) this.restoreStruct(p.data as StructSnap);
+        else { this.layerById(p.layer).ctx.putImageData(p.data as ImageData, p.x, p.y); this.layersChanged(false); }
+        this.scheduleSave();
+      },
     }, 60);
 
     this.bindInput();
@@ -116,19 +136,142 @@ export class PageEngine {
   private async load() {
     await this.lines.decode().catch(() => undefined);
     const paint = await store.paint(this.page.id);
-    if (paint) {
-      try {
-        const bmp = await createImageBitmap(paint.color);
-        this.cctx.drawImage(bmp, 0, 0, this.W, this.H);
-        bmp.close();
-      } catch { /* start blank */ }
-    }
+    if (!paint) return;
+    const drawInto = async (l: Layer, b: Blob) => {
+      try { const bmp = await createImageBitmap(b); l.ctx.drawImage(bmp, 0, 0, this.W, this.H); bmp.close(); } catch { /* blank */ }
+    };
+    if (paint.layers?.length) {
+      this.layers = paint.layers.map((x) => this.makeLayer({ id: x.id, name: x.name, visible: x.visible, locked: x.locked, opacity: x.opacity, blend: x.blend as Blend }));
+      await Promise.all(paint.layers.map((x, i) => drawInto(this.layers[i], x.blob)));
+      this.activeIdx = Math.max(0, Math.min(this.layers.length - 1, paint.active ?? this.layers.length - 1));
+      this.restack();
+      this.ev.onLayers?.();
+    } else await drawInto(this.layers[0], paint.color);
+  }
+
+  // ----- colour layers -----
+  private makeLayer(p: LayerProps, from?: HTMLCanvasElement): Layer {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'pv__color';
+    canvas.width = this.W; canvas.height = this.H;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    if (from) ctx.drawImage(from, 0, 0);
+    const l: Layer = { ...p, canvas, ctx };
+    this.all.set(l.id, l);
+    return l;
+  }
+
+  private layerById(id?: string): Layer {
+    return (id && this.all.get(id)) || this.layers[this.activeIdx];
+  }
+
+  /** Put the canvases in order, with the live stroke right above the active layer. */
+  private restack() {
+    const kids: HTMLElement[] = [];
+    this.layers.forEach((l, i) => {
+      l.canvas.style.display = l.visible ? '' : 'none';
+      l.canvas.style.opacity = String(l.opacity);
+      l.canvas.style.mixBlendMode = cssBlend(l.blend);
+      kids.push(l.canvas);
+      if (i === this.activeIdx) kids.push(this.stroke);
+    });
+    this.stroke.style.mixBlendMode = cssBlend(this.layers[this.activeIdx].blend);
+    this.layerBox.replaceChildren(...kids);
+  }
+
+  private structSnap(): StructSnap {
+    return { kind: 'struct', list: this.layers.map(({ id, name, visible, locked, opacity, blend }) => ({ id, name, visible, locked, opacity, blend })), active: this.activeIdx };
+  }
+
+  private restoreStruct(s: StructSnap) {
+    this.layers = s.list.map((p) => Object.assign(this.all.get(p.id)!, p));
+    this.activeIdx = Math.min(s.active, this.layers.length - 1);
+    this.layersChanged(true);
+  }
+
+  /** Something about the layers changed: redraw the stack and, if locks may have moved, the borders. */
+  private layersChanged(borders: boolean) {
+    this.restack();
+    if (borders) { this.map = null; this.maskCache.clear(); }
+    this.ev.onLayers?.();
+  }
+
+  /** Record the layer list before a layer action, so it can be undone. */
+  private structAction(fn: () => void, borders = false) {
+    this.history.push({ x: 0, y: 0, w: 0, h: 0, data: this.structSnap(), layer: STRUCT });
+    fn();
+    this.layersChanged(borders);
+    this.scheduleSave();
+    this.ev.onHistory?.();
+  }
+
+  get layerList(): (LayerProps & { active: boolean; thumb: HTMLCanvasElement })[] {
+    return this.layers.map((l, i) => ({ id: l.id, name: l.name, visible: l.visible, locked: l.locked, opacity: l.opacity, blend: l.blend, active: i === this.activeIdx, thumb: l.canvas }));
+  }
+  get activeLayer(): LayerProps { return this.layers[this.activeIdx]; }
+
+  selectLayer(id: string): void { const i = this.layers.findIndex((l) => l.id === id); if (i >= 0 && i !== this.activeIdx) { this.activeIdx = i; this.restack(); this.ev.onLayers?.(); } }
+
+  addLayer(): void {
+    this.structAction(() => {
+      const l = this.makeLayer({ id: layerId(), name: nextName(this.layers), visible: true, locked: false, opacity: 1, blend: 'normal' });
+      this.layers.splice(this.activeIdx + 1, 0, l);
+      this.activeIdx += 1;
+    });
+  }
+
+  duplicateLayer(id: string): void {
+    const i = this.layers.findIndex((l) => l.id === id); if (i < 0) return;
+    const src = this.layers[i];
+    this.structAction(() => {
+      const l = this.makeLayer({ id: layerId(), name: src.name + ' (עותק)', visible: true, locked: false, opacity: src.opacity, blend: src.blend }, src.canvas);
+      this.layers.splice(i + 1, 0, l);
+      this.activeIdx = i + 1;
+    });
+  }
+
+  removeLayer(id: string): void {
+    const i = this.layers.findIndex((l) => l.id === id); if (i < 0) return;
+    if (this.layers.length === 1) { this.clearLayer(id); return; }
+    const wasLocked = this.layers[i].locked;
+    this.structAction(() => {
+      this.activeIdx = activeAfterRemove(this.layers.length, i, this.activeIdx);
+      this.layers.splice(i, 1);
+    }, wasLocked);
+  }
+
+  /** Empty one layer (undoable like a stroke). */
+  clearLayer(id: string): void {
+    const l = this.all.get(id); if (!l) return;
+    this.history.push({ x: 0, y: 0, w: this.W, h: this.H, data: l.ctx.getImageData(0, 0, this.W, this.H), layer: l.id });
+    l.ctx.clearRect(0, 0, this.W, this.H);
+    this.layersChanged(l.locked); this.scheduleSave(); this.ev.onHistory?.();
+  }
+
+  moveLayer(id: string, dir: 1 | -1): void {
+    const i = this.layers.findIndex((l) => l.id === id); if (i < 0) return;
+    if (i + dir < 0 || i + dir >= this.layers.length) return;
+    this.structAction(() => {
+      const activeId = this.layers[this.activeIdx].id;
+      moveIn(this.layers, i, dir);
+      this.activeIdx = this.layers.findIndex((l) => l.id === activeId);
+    });
+  }
+
+  setLayer(id: string, patch: Partial<Pick<LayerProps, 'name' | 'visible' | 'locked' | 'opacity' | 'blend'>>): void {
+    const l = this.layers.find((x) => x.id === id); if (!l) return;
+    this.structAction(() => { Object.assign(l, patch); }, 'locked' in patch || ('visible' in patch && l.locked));
+  }
+
+  /** Locked, visible layers other than the active one: their colour is protected and acts as a border. */
+  private guards(): Layer[] {
+    return this.layers.filter((l, i) => l.locked && l.visible && i !== this.activeIdx);
   }
 
   /** Build the region map when the main thread is idle (after a page flip), so animations stay smooth. */
   prepare(): void {
     if (this.map) return;
-    const run = () => { if (!this.map && this.color.width) this.buildRegions(); };
+    const run = () => { if (!this.map && this.stroke.width) this.buildRegions(); };
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
     if (ric) ric(run, { timeout: 1500 }); else setTimeout(run, 400);
   }
@@ -140,7 +283,14 @@ export class PageEngine {
     const x = c.getContext('2d', { willReadFrequently: true })!;
     x.drawImage(this.lines, 0, 0, this.W, this.H);
     const d = x.getImageData(0, 0, this.W, this.H).data;
-    this.map = labelRegions(binarize(d, this.W, this.H), this.W, this.H);
+    const walls = binarize(d, this.W, this.H);
+    // the colour of a locked layer is a border too, so each layer can set its own lines
+    for (const g of this.guards()) {
+      const a = g.ctx.getImageData(0, 0, this.W, this.H).data;
+      for (let i = 0; i < walls.length; i++) if (a[i * 4 + 3] > 60) walls[i] = 1;
+    }
+    this.map = labelRegions(walls, this.W, this.H);
+    this.mapActive = this.activeIdx;
     c.width = 0;
   }
 
@@ -359,6 +509,10 @@ export class PageEngine {
   private startStroke(e: PointerEvent) {
     const t = this.tools();
     this.strokeTool = this.isEraserButton(e) ? 'eraser' : t.tool;
+    const layer = this.layers[this.activeIdx];
+    if (layer.locked || !layer.visible) { this.ev.onLocked?.(); this.mode = 'idle'; return; }
+    // the borders depend on which layers are locked besides this one
+    if (this.map && this.mapActive !== this.activeIdx && this.guards().length) { this.map = null; this.maskCache.clear(); }
     this.mode = 'draw';
     this.drawPtr = e.pointerId;
     this.stroke.style.opacity = this.strokeTool === 'eraser' ? '1' : String(t.opacity);
@@ -397,6 +551,16 @@ export class PageEngine {
       c.drawImage(this.clip.canvas, this.clip.rect.x, this.clip.rect.y);
       c.restore();
     }
+    // never colour over a locked layer
+    const guards = this.strokeTool === 'eraser' ? [] : this.guards();
+    if (guards.length) {
+      const c = this.sctx;
+      c.save();
+      c.beginPath(); c.rect(dirty.x, dirty.y, dirty.w, dirty.h); c.clip();
+      c.globalCompositeOperation = 'destination-out';
+      for (const g of guards) c.drawImage(g.canvas, 0, 0);
+      c.restore();
+    }
     this.strokeBox = this.strokeBox ? union(this.strokeBox, dirty) : dirty;
   }
 
@@ -410,7 +574,7 @@ export class PageEngine {
     this.last = null; this.drawPtr = -1;
     if (!b) return;
     const before = this.cctx.getImageData(b.x, b.y, b.w, b.h);
-    this.history.push({ x: b.x, y: b.y, w: b.w, h: b.h, data: before });
+    this.history.push({ x: b.x, y: b.y, w: b.w, h: b.h, data: before, layer: this.layers[this.activeIdx].id });
     const c = this.cctx;
     c.save();
     if (this.strokeTool === 'eraser') c.globalCompositeOperation = 'destination-out';
@@ -439,7 +603,10 @@ export class PageEngine {
     const { x, y } = this.toPage(e);
     const xi = Math.round(x), yi = Math.round(y);
     if (xi < 0 || yi < 0 || xi >= this.W || yi >= this.H) { this.ev.onPick?.(null); return; }
-    const d = this.cctx.getImageData(Math.max(0, xi - 2), Math.max(0, yi - 2), 5, 5).data;
+    const t = document.createElement('canvas'); t.width = 5; t.height = 5;
+    const tx = t.getContext('2d', { willReadFrequently: true })!;
+    for (const l of this.layers) if (l.visible) { tx.globalAlpha = l.opacity; tx.globalCompositeOperation = compositeOp(l.blend); tx.drawImage(l.canvas, -(Math.max(0, xi - 2)), -(Math.max(0, yi - 2))); }
+    const d = tx.getImageData(0, 0, 5, 5).data;
     let r = 0, g = 0, b = 0, a = 0;
     for (let i = 0; i < d.length; i += 4) { const w = d[i + 3] / 255; r += d[i] * w; g += d[i + 1] * w; b += d[i + 2] * w; a += w; }
     this.ev.onPick?.(a < 0.5 ? null : rgbToHex(r / a, g / a, b / a));
@@ -499,13 +666,22 @@ export class PageEngine {
     c.width = Math.round(this.W * k); c.height = Math.round(this.H * k);
     const x = c.getContext('2d')!;
     x.fillStyle = this.look.paper ?? '#fffdf8'; x.fillRect(0, 0, c.width, c.height);
-    x.drawImage(this.color, 0, 0, c.width, c.height);
     x.globalCompositeOperation = 'multiply';
-    if (this.lines.naturalWidth) x.drawImage(this.lines, 0, 0, c.width, c.height);
-    x.globalCompositeOperation = 'source-over';
+    if (this.lines.naturalWidth && this.lines.style.visibility !== 'hidden') { x.globalAlpha = Number(this.lines.style.opacity || 1); x.drawImage(this.lines, 0, 0, c.width, c.height); x.globalAlpha = 1; }
+    this.drawLayers(x, c.width, c.height);
     if (!this.page.numbersInImage) drawNumbers(x, this.page.labels, k);
     this.look.decorate?.(x, c.width, c.height);
     return c;
+  }
+
+  /** All visible colour layers, flattened the way they look on screen. */
+  private drawLayers(x: CanvasRenderingContext2D, w: number, h: number) {
+    for (const l of this.layers) {
+      if (!l.visible) continue;
+      x.globalAlpha = l.opacity; x.globalCompositeOperation = compositeOp(l.blend);
+      x.drawImage(l.canvas, 0, 0, w, h);
+    }
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   }
 
   /** Automatic solution from the numbers and the legend. */
@@ -539,8 +715,18 @@ export class PageEngine {
     if (!this.dirty) return;
     this.dirty = false;
     clearTimeout(this.saveTimer);
-    const blob = await new Promise<Blob | null>((r) => this.color.toBlob(r, 'image/png'));
-    if (blob) await store.putPaint({ pageId: this.page.id, color: blob, updatedAt: Date.now() });
+    const toBlob = (c: HTMLCanvasElement) => new Promise<Blob | null>((r) => c.toBlob(r, 'image/png'));
+    // flat picture (for thumbnails and backups) plus every layer on its own
+    const flat = document.createElement('canvas'); flat.width = this.W; flat.height = this.H;
+    this.drawLayers(flat.getContext('2d')!, this.W, this.H);
+    const color = await toBlob(flat); flat.width = 0;
+    if (!color) return;
+    const layers = [];
+    for (const l of this.layers) {
+      const blob = await toBlob(l.canvas);
+      if (blob) layers.push({ id: l.id, name: l.name, visible: l.visible, locked: l.locked, opacity: l.opacity, blend: l.blend, blob });
+    }
+    await store.putPaint({ pageId: this.page.id, color, updatedAt: Date.now(), layers, active: this.activeIdx });
   }
 
   async destroy(): Promise<void> {
@@ -549,7 +735,8 @@ export class PageEngine {
     await this.save();
     URL.revokeObjectURL(this.linesUrl);
     this.maskCache.clear();
-    this.color.width = 0; this.stroke.width = 0; this.lamp.width = 0;
+    for (const l of this.all.values()) l.canvas.width = 0;
+    this.stroke.width = 0; this.lamp.width = 0;
   }
 }
 

@@ -62,8 +62,13 @@ export interface PageRec {
   title?: string;
 }
 
+export interface PaintLayerRec { id: string; name: string; visible: boolean; locked: boolean; opacity: number; blend: string; blob: Blob }
+
 export interface PaintRec {
   pageId: string;
+  /** Every visible layer flattened: thumbnails, backups, older versions. */
   color: Blob;
   updatedAt: number;
+  layers?: PaintLayerRec[];
+  active?: number;
 }

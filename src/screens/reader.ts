@@ -1,4 +1,6 @@
 /** Inside a book: page flipping, coloring mode, legend, lamp, solution, closing. */
+import { BLEND_HE, type Blend } from '../coloring/layers';
+import { openPalette, closePalette } from '../ui/palette';
 import { go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { BookMeta, Category, PageRec } from '../app/types';
@@ -43,7 +45,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   })();
 
   const state: ToolState = {
-    tool: prefs.get('tool.v2', 'marker'), color: prefs.get('color', '#ef476f'),
+    tool: ((t) => (t === 'pencil' ? 'marker' : t))(prefs.get<ToolState['tool']>('tool.v2', 'marker')), color: prefs.get('color', '#ef476f'),
     size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: (prefs.get('inside.v2', false) as boolean),
   };
   if (state.tool === 'picker') state.tool = 'marker';
@@ -61,6 +63,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
   const refBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'חלונית פתרון עם זום' }, h('span', {}, 'חלונית פתרון'));
+  const palBtn = h('button', { class: 'pill', type: 'button', title: 'צבעי הדף מקוביות הצבע' }, h('span', {}, '🎨 צבעי הדף'));
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
@@ -75,7 +78,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader reader--browse' },
-    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, refBtn, solutionBtn, modeBtn, homeBtn)),
+    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, palBtn, refBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);
@@ -144,7 +147,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   /** Done colouring: back to the open book, on the spread with this page. */
   async function backToBook() {
     const entry = index;
-    hideSolution(); closeReference();
+    hideSolution(); closeReference(); closePalette();
     setColoring(false);
     const s = surface; surface = null;
     await s?.destroy();
@@ -228,6 +231,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       if (hex) { setColor(hex); toast('הצבע נדגם'); } else toast('אין כאן צבע לדגום');
       toolbar?.update();
     },
+    onLayers: () => renderLayers(),
+    onLocked: () => toast('השכבה הזאת נעולה או מוסתרת. בחרי שכבה אחרת או פתחי את המנעול 🔓'),
   });
   const pageSurface = async (id: string): Promise<Surface> => {
     const page = await store.page(id);
@@ -350,7 +355,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       const total = entries.filter((x) => x.kind === 'page').length;
       const k = shown[0] ? entries[shown[0].entry]?.kind : undefined;
       counter.textContent = nos.length ? `עמוד ${nos.join('–')} מתוך ${total}` : k === 'cover' ? 'כריכה' : k === 'back' ? 'כריכה אחורית' : k === 'title' ? 'פתיחה' : k === 'congrats' ? 'סוף החוברת' : '';
-      solutionBtn.hidden = true; refBtn.hidden = true; modeBtn.hidden = true;
+      solutionBtn.hidden = true; refBtn.hidden = true; modeBtn.hidden = true; palBtn.hidden = true; pal?.close();
       prevBtn.disabled = !spread || spread.index === 0;
       nextBtn.setAttribute('aria-label', spread?.atEnd ? 'סגירת החוברת' : 'העמוד הבא');
       return;
@@ -361,6 +366,9 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'title' ? 'פתיחה' : e.kind === 'back' ? 'כריכה אחורית' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
     const isPage = e.kind === 'page';
     solutionBtn.hidden = !isPage; refBtn.hidden = !isPage;
+    palBtn.hidden = !isPage || !surface?.page?.legend.length;
+    if (palBtn.hidden) pal?.close();
+    else if (pal) openPal();
     modeBtn.hidden = !isPage && e.kind !== 'congrats';
     if (modeBtn.hidden && coloring) setColoring(false);
     prevBtn.disabled = index === 0;
@@ -391,6 +399,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     state.color = hex;
     prefs.set('color', hex);
     markLegend();
+    pal?.mark(hex);
     toolbar?.update();
     if (lampOn && surface?.engine) { const r = surface.engine.setLamp(hex); if (!r.ok) { lampOn = false; surface.engine.setLamp(null); } toolbar?.update(); }
     clearTimeout(recentTimer);
@@ -459,19 +468,72 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   let linesShown = true;
   let linesOpacity = 1;
   const applyLines = () => { if (surface?.engine) { surface.engine.linesVisible = linesShown; surface.engine.linesOpacity = linesOpacity; } };
+  let layersHost: HTMLElement | null = null;
   function layersPanel(): HTMLElement {
+    layersHost = h('div', { class: 'layers' });
+    renderLayers(true);
+    return layersHost;
+  }
+
+  /** Colour layers, top layer first: pick, hide, lock, move up and down, rename, and more. */
+  function renderLayers(first = false) {
+    const host = layersHost;
+    if (!host || (!first && !host.isConnected)) return;
+    const eng = surface?.engine;
     const nums = h('input', { type: 'checkbox', id: 'layer-numbers', checked: numbersShown });
     nums.addEventListener('change', () => { numbersShown = nums.checked; if (surface?.engine) surface.engine.numbersVisible = numbersShown; });
     const lines = h('input', { type: 'checkbox', id: 'layer-lines', checked: linesShown });
     lines.addEventListener('change', () => { linesShown = lines.checked; applyLines(); });
     const linesOp = h('input', { type: 'range', class: 'slider', id: 'layer-lines-op', min: 10, max: 100, value: Math.round(linesOpacity * 100), 'aria-label': 'כהות הקווים' });
     linesOp.addEventListener('input', () => { linesOpacity = Number(linesOp.value) / 100; applyLines(); });
-    return h('div', { class: 'layers' },
+    const kids: (HTMLElement | null)[] = [];
+    if (eng) {
+      const list = eng.layerList;
+      const rows = h('ol', { class: 'lyr__list', 'aria-label': 'שכבות צבע' });
+      list.slice().reverse().forEach((l) => {
+        const i = list.indexOf(l);
+        const thumb = h('canvas', { class: 'lyr__thumb', width: 48, height: Math.round(48 * eng.H / eng.W) }) as HTMLCanvasElement;
+        const tx = thumb.getContext('2d')!; tx.fillStyle = '#fffdf8'; tx.fillRect(0, 0, thumb.width, thumb.height); tx.drawImage(l.thumb, 0, 0, thumb.width, thumb.height);
+        const eye = h('button', { class: 'lyr__btn' + (l.visible ? '' : ' is-off'), type: 'button', 'aria-label': l.visible ? 'הסתרת השכבה' : 'הצגת השכבה', 'aria-pressed': String(!l.visible) }, l.visible ? '👁' : '🚫');
+        eye.addEventListener('click', (ev) => { ev.stopPropagation(); eng.setLayer(l.id, { visible: !l.visible }); });
+        const lock = h('button', { class: 'lyr__btn' + (l.locked ? ' is-on' : ''), type: 'button', 'aria-label': l.locked ? 'פתיחת המנעול' : 'נעילת השכבה', 'aria-pressed': String(l.locked) }, l.locked ? '🔒' : '🔓');
+        lock.addEventListener('click', (ev) => { ev.stopPropagation(); eng.setLayer(l.id, { locked: !l.locked }); if (!l.locked) toast('השכבה ננעלה: אי אפשר לצבוע עליה, והצבע שלה הוא גבול לשכבות האחרות'); });
+        const up = h('button', { class: 'lyr__btn', type: 'button', 'aria-label': 'להעלות שכבה', disabled: i === list.length - 1 }, '▲');
+        up.addEventListener('click', (ev) => { ev.stopPropagation(); eng.moveLayer(l.id, 1); });
+        const down = h('button', { class: 'lyr__btn', type: 'button', 'aria-label': 'להוריד שכבה', disabled: i === 0 }, '▼');
+        down.addEventListener('click', (ev) => { ev.stopPropagation(); eng.moveLayer(l.id, -1); });
+        const name = h('span', { class: 'lyr__name', dir: 'auto' }, l.name);
+        const row = h('li', { class: 'lyr__row' + (l.active ? ' is-active' : ''), tabindex: 0, role: 'button', 'aria-label': `שכבה ${l.name}${l.active ? ' (פעילה)' : ''}` }, thumb, name, eye, lock, up, down);
+        row.addEventListener('click', () => eng.selectLayer(l.id));
+        row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') eng.selectLayer(l.id); });
+        rows.append(row);
+      });
+      const act = eng.activeLayer;
+      const add = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, '＋ שכבה חדשה');
+      add.addEventListener('click', () => eng.addLayer());
+      const dup = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, '⧉ שכפול');
+      dup.addEventListener('click', () => eng.duplicateLayer(act.id));
+      const del = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, list.length > 1 ? '🗑 מחיקה' : '🧽 ניקוי');
+      del.addEventListener('click', () => { if (list.length > 1) eng.removeLayer(act.id); else eng.clearLayer(act.id); toast('אפשר לבטל עם ↶'); });
+      const rename = h('input', { class: 'field lyr__rename', id: 'layer-name', value: act.name, maxlength: 30, dir: 'auto', 'aria-label': 'שם השכבה' }) as HTMLInputElement;
+      rename.addEventListener('change', () => { const v = rename.value.trim(); if (v && v !== act.name) eng.setLayer(act.id, { name: v }); });
+      const op = h('input', { type: 'range', class: 'slider', id: 'layer-op', min: 5, max: 100, value: Math.round(act.opacity * 100), 'aria-label': 'שקיפות השכבה' }) as HTMLInputElement;
+      op.addEventListener('change', () => eng.setLayer(act.id, { opacity: Number(op.value) / 100 }));
+      const blend = h('select', { class: 'field', id: 'layer-blend', 'aria-label': 'מצב מיזוג' },
+        ...(Object.keys(BLEND_HE) as Blend[]).map((b) => h('option', { value: b, selected: b === act.blend }, BLEND_HE[b]))) as HTMLSelectElement;
+      blend.addEventListener('change', () => eng.setLayer(act.id, { blend: blend.value as Blend }));
+      kids.push(h('div', { class: 'lyr__title' }, 'שכבות צבע'), rows,
+        h('div', { class: 'lyr__actions' }, add, dup, del),
+        h('label', { class: 'layers__row', for: 'layer-name' }, h('span', {}, 'שם'), rename),
+        h('label', { class: 'layers__row', for: 'layer-op' }, h('span', {}, 'שקיפות'), op),
+        h('label', { class: 'layers__row', for: 'layer-blend' }, h('span', {}, 'מיזוג'), blend),
+        h('p', { class: 'menu__hint' }, 'שכבה נעולה מוגנת: אי אפשר לצבוע עליה, ועם "בתוך הקווים" הצבע שלה הוא גבול גם לשכבות האחרות.'));
+    }
+    kids.push(h('div', { class: 'lyr__title' }, 'קווים ומספרים'),
       h('label', { class: 'layers__row', for: 'layer-lines' }, h('span', {}, 'קווים'), lines),
       h('label', { class: 'layers__row', for: 'layer-lines-op' }, h('span', {}, 'כהות הקווים'), linesOp),
-      h('label', { class: 'layers__row', for: 'layer-numbers' }, h('span', {}, 'מספרים'), nums),
-      h('div', { class: 'layers__row' }, h('span', {}, 'צבע'), h('span', { class: 'muted' }, 'שכבה 1')),
-      h('p', { class: 'menu__hint' }, 'הוספה, שכפול ומצבי מיזוג של שכבות יגיעו בשלב הבא'));
+      h('label', { class: 'layers__row', for: 'layer-numbers' }, h('span', {}, 'מספרים'), nums));
+    host.replaceChildren(...kids.filter((x): x is HTMLElement => !!x));
   }
 
   /** The solution picture for this page: the original from the back of the book, or one made from the numbers. */
@@ -517,6 +579,14 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     openReference(sol.src, sol.auto ? 'פתרון אוטומטי' : 'הפתרון מהחוברת');
   }
 
+  let pal: ReturnType<typeof openPalette> | null = null;
+  function openPal() {
+    const entries = surface?.page?.legend ?? [];
+    if (!entries.length) return;
+    pal = openPalette(entries, state.color, (hex) => { setColor(hex); if (!coloring) setColoring(true); }, () => { pal = null; palBtn.classList.remove('is-on'); });
+    palBtn.classList.add('is-on');
+  }
+
   // ----- wiring -----
   homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { categoriesScreen } = await import('./categories'); go(categoriesScreen, 'back'); });
   back.addEventListener('click', async () => {
@@ -528,6 +598,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   modeBtn.addEventListener('click', () => { if (coloring) void backToBook(); else setColoring(true); });
   solutionBtn.addEventListener('click', () => void toggleSolution());
   refBtn.addEventListener('click', () => void openRef());
+  palBtn.addEventListener('click', () => { if (pal) pal.close(); else openPal(); });
   gridBtn.addEventListener('click', () => void openGrid());
 
   /** Every page of the book at a glance; tap one to jump straight to it. */
@@ -557,8 +628,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
           const [pg, paint] = await Promise.all([store.page(e.id), store.paint(e.id)]);
           if (!pg) return;
           art.style.aspectRatio = `${pg.width} / ${pg.height}`;
-          if (paint?.color) art.append(h('img', { class: 'pgrid__paint', src: url(paint.color), alt: '', loading: 'lazy', decoding: 'async' }));
           art.append(h('img', { class: 'pgrid__lines', src: url(pg.image), alt: '', loading: 'lazy', decoding: 'async' }));
+          if (paint?.color) art.append(h('img', { class: 'pgrid__paint', src: url(paint.color), alt: '', loading: 'lazy', decoding: 'async' }));
         })();
       }
       const tile = h('button', { class: 'pgrid__tile' + (cur.has(i) ? ' is-current' : ''), type: 'button', role: 'listitem', 'aria-label': label },
@@ -625,7 +696,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     document.removeEventListener('visibilitychange', onHide);
     toolbar?.destroy();
     void surface?.destroy();
-    closeReference();
+    closeReference(); closePalette();
     setTimeout(() => leafUrls.forEach((u) => URL.revokeObjectURL(u)), 2000);
   };
 }

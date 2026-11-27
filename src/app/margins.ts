@@ -66,12 +66,44 @@ export async function restoreMargins(c: HTMLCanvasElement, mode: MarginMode, ski
       }
     } catch (e) { if ((e as Error).name === 'AbortError') throw e; /* white margin is fine */ }
   }
+  drawFrame(out, c, m, sides);
   return { canvas: out, dx, dy };
+}
+
+/** Typical stroke width of the drawing, from runs of dark pixels. */
+function strokeWidth(c: HTMLCanvasElement): number {
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  const runs: number[] = [];
+  for (let k = 1; k < 12; k++) {
+    const y = Math.floor((c.height * k) / 12);
+    const d = x.getImageData(0, y, c.width, 1).data;
+    let run = 0;
+    for (let i = 0; i < c.width; i++) {
+      if (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2] < 300) run++;
+      else { if (run > 0 && run < 40) runs.push(run); run = 0; }
+    }
+  }
+  runs.sort((a, b) => a - b);
+  return Math.max(2, runs[Math.floor(runs.length / 2)] ?? 3);
+}
+
+/** A clean frame around the whole restored page, so the picture is closed again. */
+function drawFrame(out: HTMLCanvasElement, src: HTMLCanvasElement, m: number, sides: Side[]): void {
+  const x = out.getContext('2d')!;
+  const lw = strokeWidth(src) * 1.4;
+  const inset = Math.round(m * 0.35);
+  x.save();
+  x.strokeStyle = '#000'; x.lineWidth = lw; x.lineJoin = 'miter';
+  // on sides that were not cut, the frame runs along the page's own edge
+  const l = (sides.includes('left') ? inset : 0) + lw / 2, t = (sides.includes('top') ? inset : 0) + lw / 2;
+  const r = out.width - (sides.includes('right') ? inset : 0) - lw / 2, b = out.height - (sides.includes('bottom') ? inset : 0) - lw / 2;
+  x.strokeRect(l, t, r - l, b - t);
+  x.restore();
 }
 
 const blobOf = (c: HTMLCanvasElement) => new Promise<Blob>((r, j) => c.toBlob((b) => (b ? r(b) : j(new Error('png'))), 'image/png'));
 const PROMPT = 'This is a black and white line drawing from a coloring book. The white border around it is empty because the photo was cut. ' +
-  'Continue every cut line naturally into the empty border, in exactly the same style: clean black outlines on white, no colour, no shading, no text. Keep the existing drawing unchanged.';
+  'Continue every cut line naturally into the empty border, in exactly the same style: clean black outlines on white, no colour, no shading, no text. Keep the existing drawing unchanged, and complete the rectangular frame border around the whole picture.';
 
 /** Ask the image service to draw into the empty margin. Null when there is no key. */
 async function aiExtend(full: HTMLCanvasElement, keep: { x: number; y: number; w: number; h: number }, signal?: AbortSignal): Promise<HTMLImageElement | null> {

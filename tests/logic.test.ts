@@ -125,3 +125,24 @@ describe('undo / redo', () => {
     expect(px[0]).toBe(70 - n);
   });
 });
+
+import { activeAfterRemove, moveIn, nextName } from '../src/coloring/layers';
+
+describe('colour layers', () => {
+  it('moves a layer up and down and stays inside the list', () => {
+    const l = ['a', 'b', 'c'];
+    expect(moveIn(l, 0, 1)).toBe(1); expect(l).toEqual(['b', 'a', 'c']);
+    expect(moveIn(l, 2, 1)).toBe(2); expect(l).toEqual(['b', 'a', 'c']);
+    expect(moveIn(l, 1, -1)).toBe(0); expect(l).toEqual(['a', 'b', 'c']);
+  });
+  it('keeps a sensible active layer after a delete', () => {
+    expect(activeAfterRemove(3, 2, 2)).toBe(1);
+    expect(activeAfterRemove(3, 0, 2)).toBe(1);
+    expect(activeAfterRemove(3, 2, 0)).toBe(0);
+    expect(activeAfterRemove(1, 0, 0)).toBe(0);
+  });
+  it('names new layers without clashing', () => {
+    expect(nextName([{ name: 'שכבה 1' }])).toBe('שכבה 2');
+    expect(nextName([{ name: 'שכבה 1' }, { name: 'שכבה 3' }])).toBe('שכבה 4');
+  });
+});

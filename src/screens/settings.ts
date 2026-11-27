@@ -161,7 +161,7 @@ export function settingsScreen(el: HTMLElement) {
       section('קסם וצלילים',
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         h('p', { class: 'set-label' }, 'צליל הדפדוף (לחיצה משמיעה אותו)'),
-        radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'whisper'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
+        radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'page'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
       section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),

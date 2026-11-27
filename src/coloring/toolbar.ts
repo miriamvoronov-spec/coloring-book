@@ -111,7 +111,7 @@ export class Toolbar {
 
   private toolMenu(): HTMLElement {
     const box = h('div', { class: 'menu', role: 'menu' });
-    for (const t of ['marker', 'eraser', 'picker', 'pencil'] as ToolName[]) {
+    for (const t of ['marker', 'eraser', 'picker'] as ToolName[]) {
       const b = h('button', { class: 'menu__item' + (this.k.state.tool === t ? ' is-on' : ''), type: 'button', role: 'menuitemradio', 'aria-checked': String(this.k.state.tool === t), html: TOOL_ICON[t] },
         h('span', {}, TOOL_LABEL[t]));
       b.addEventListener('click', () => {
