@@ -17,11 +17,11 @@ const COVERS = ['#1f2c5c', '#4a2058', '#7a1f2b', '#1f5a45', '#1d4f5a', '#8c3a55'
 function whoDraws(): HTMLElement {
   const prov = prefs.get('imgProvider', 'claude');
   const sel = h('select', { class: 'field', id: 'idea-prov' },
-    ...([['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']] as const)
+    ...([['claude', 'קלוד (בתוך claude.ai, בלי מפתח)'], ['anthropic', 'קלוד עם מפתח Anthropic (עובד בכל מקום)'], ['local', 'ציור מובנה (בלי אינטרנט ובלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']] as const)
       .map(([v, t]) => h('option', { value: v, selected: v === prov }, t))) as HTMLSelectElement;
   const key = h('input', { class: 'field', type: 'password', id: 'idea-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
   const keyRow = h('div', { class: 'idea__row' }, h('label', { for: 'idea-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), key);
-  const load = () => { key.value = prefs.get('imgKey.' + sel.value, ''); keyRow.hidden = sel.value === 'claude'; };
+  const load = () => { key.value = prefs.get('imgKey.' + sel.value, ''); keyRow.hidden = sel.value === 'claude' || sel.value === 'local'; };
   sel.addEventListener('change', () => { prefs.set('imgProvider', sel.value); load(); });
   key.addEventListener('input', () => prefs.set('imgKey.' + sel.value, key.value.trim()));
   load();

@@ -59,17 +59,66 @@ export function creatorError(e: unknown): string {
   return (e as Error)?.message && /[א-ת]/.test((e as Error).message) ? (e as Error).message : 'משהו השתבש ביצירה. ננסה שוב?';
 }
 
-export async function creatorAvailable(): Promise<boolean> { return !!(await useCap<Sample>('sample')); }
+export async function creatorAvailable(): Promise<boolean> { return true; }
 
+/**
+ * Who writes for Claude: inside claude.ai the page's own Claude; anywhere
+ * else her own Anthropic API key (kept on this device). Null: neither, and the
+ * built-in drawings are used instead.
+ */
+async function claudeSampler(): Promise<Sample | null> {
+  const prov = prefs.get<Provider>('imgProvider', 'claude');
+  const key = prefs.get('imgKey.anthropic', '');
+  if (prov === 'anthropic' && key) return anthropicSample(key);
+  if (prov === 'claude') { const s = await useCap<Sample>('sample'); if (s) return s; if (key) return anthropicSample(key); }
+  return null;
+}
 async function sampler(): Promise<Sample> {
-  const s = await useCap<Sample>('sample');
-  if (!s) throw new Error('היצירה עם קלוד עובדת כשהאפליקציה פתוחה בתוך claude.ai');
+  const s = await claudeSampler();
+  if (!s) throw new Error('אין חיבור לקלוד כאן. אפשר להוסיף מפתח Anthropic, או לבחור "ציור מובנה" שעובד בלי אינטרנט');
   return s;
+}
+
+/** Claude through her own API key, straight from the browser. */
+function anthropicSample(key: string): Sample {
+  return async (input, opts = {}) => {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+    const complex = opts.modelTier === 'complex';
+    const stream = client.beta.messages.stream({
+      model: 'claude-opus-5-5',
+      max_tokens: complex ? 64000 : 4000,
+      output_config: { effort: complex ? 'medium' : 'low' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      messages: [{ role: 'user', content: input }],
+    } as never, { signal: opts.signal });
+    let text = '';
+    stream.on('text', (d: string) => { text += d; opts.onText?.({ text }); });
+    try {
+      const msg = await stream.finalMessage();
+      if (msg.stop_reason === 'refusal') throw Object.assign(new Error('refused'), { code: 'refused' });
+      return { text: msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('') };
+    } catch (e) {
+      if (e instanceof Anthropic.AuthenticationError) throw new Error('מפתח Anthropic לא תקין');
+      if (e instanceof Anthropic.RateLimitError) throw Object.assign(new Error('rate'), { code: 'rate_limited' });
+      if (e instanceof Anthropic.APIError) throw new Error(`שגיאה מ-Anthropic (${e.status ?? ''})`);
+      throw e;
+    }
+  };
+}
+/** True when pages will be drawn by the built-in, offline generator. */
+export async function drawsLocally(): Promise<boolean> {
+  const prov = prefs.get<Provider>('imgProvider', 'claude');
+  if (prov === 'local') return true;
+  if ((prov === 'openai' || prov === 'gemini') && prefs.get('imgKey.' + prov, '')) return false;
+  return !(await claudeSampler());
 }
 
 /** Page titles for a themed book, for her to approve or edit first. */
 export async function themeTitles(theme: string, count: number, signal?: AbortSignal): Promise<string[]> {
-  const s = await sampler();
+  const s = await claudeSampler();
+  if (!s) { const { localTitles } = await import('./procedural'); return localTitles(theme, count); }
   const prompt = `You plan a coloring book. Theme (in Hebrew): "${theme}".
 Invent ${count} page ideas. Each page is a playful variation on the theme, with a short magical Hebrew title of 2 to 5 words
 (for example, for "פירות הדר בתפקיד שוליית המכשף": "תפוז הקריסטלים", "לימון המטאטא המכושף").
@@ -231,11 +280,17 @@ export interface MakeOpts { level: Level; colors: number; style?: ArtStyle; sign
 export async function makePage(bookId: string, idea: string, title: string, o: MakeOpts): Promise<PageRec> {
   const provider = prefs.get<Provider>('imgProvider', 'claude');
   let fill: HTMLCanvasElement, palette: string[];
-  if (provider !== 'claude' && prefs.get('imgKey.' + provider, '')) {
+  if ((provider === 'openai' || provider === 'gemini') && prefs.get('imgKey.' + provider, '')) {
     o.progress?.(provider === 'openai' ? 'OpenAI מצייר…' : 'Gemini מצייר…');
     fill = await rasterFromApi(provider, idea, o.level, o.colors, o.signal, o.style);
     o.progress?.('מסדרת קווים, אזורים ומספרים…');
     palette = quantize(fill, o.colors);
+  } else if (await drawsLocally()) {
+    o.progress?.('מציירת…');
+    const { proceduralSvg } = await import('./procedural');
+    const clean = sanitize(proceduralSvg(idea, o.level, o.colors, o.style));
+    palette = clean.palette;
+    fill = await svgCanvas(clean.svg);
   } else {
     o.progress?.('קלוד מצייר…');
     const raw = await drawSvg(idea, o.level, o.colors, (n) => o.progress?.(`קלוד מצייר… (${Math.round(n / 100)})`), o.signal, o.style);
@@ -275,7 +330,7 @@ export async function savePages(target: { bookId: string } | { title: string; co
 }
 
 // ---------------- optional image APIs (her own key, kept only on this device) ----------------
-export type Provider = 'claude' | 'openai' | 'gemini';
+export type Provider = 'claude' | 'anthropic' | 'local' | 'openai' | 'gemini';
 
 function imagePrompt(idea: string, level: Level, colors: number, style?: ArtStyle): string {
   return `An original color-by-number illustration for a coloring book: ${idea}. ${styleOf(style).prompt} ` +

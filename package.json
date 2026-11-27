@@ -19,6 +19,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
     "@supabase/supabase-js": "^2.110.0",
     "fflate": "^0.8.2",
     "pdfjs-dist": "^3.11.174"
