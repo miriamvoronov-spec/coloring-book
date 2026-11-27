@@ -41,17 +41,18 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   })();
 
   const state: ToolState = {
-    tool: prefs.get('tool', 'pencil'), color: prefs.get('color', '#ef476f'),
+    tool: prefs.get('tool.v2', 'marker'), color: prefs.get('color', '#ef476f'),
     size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: (prefs.get('inside.v2', false) as boolean),
   };
-  if (state.tool === 'picker') state.tool = 'pencil';
+  if (state.tool === 'picker') state.tool = 'marker';
   let coloring = false;
   let lampOn = false;
   let index = 0;
   let surface: Surface | null = null;
   let busy = false;
   let toolbar: Toolbar | null = null;
-  let toolBeforePicker: ToolState['tool'] = 'pencil';
+  let toolBeforePicker: ToolState['tool'] = 'marker';
+  const startPicker = () => { toolBeforePicker = state.tool === 'picker' ? 'marker' : state.tool; state.tool = 'picker'; toolbar?.closePop(); toolbar?.update(); toast('געי בדף כדי לדגום צבע'); };
 
   // ----- DOM -----
   const title = h('h1', { class: 'reader__title', dir: 'auto' }, book.title);
@@ -124,7 +125,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
         h('div', { class: 'book3d__mark', html: logoMark(120) }),
         h('div', { class: 'book3d__ttl', dir: 'auto' }, book.title),
         h('div', { class: 'book3d__rule', 'aria-hidden': 'true' }, h('span', {}, '✦')),
-        h('div', { class: 'book3d__sub', dir: 'ltr' }, 'Miriam Coloring Books')));
+        h('div', { class: 'book3d__sub', dir: 'ltr' }, "Miriam's Coloring Books")));
     // in a right-to-left book the cover opens to the right, so its inside is on the right
     const el = h('div', { class: 'spread' + (rtl ? ' spread--rtl' : '') }, inside, titlePage);
     return { el, aspect: 2 / 1.4, snapshot: () => el.cloneNode(true), destroy: async () => el.remove() };
@@ -312,7 +313,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     if (surface?.engine) { surface.engine.drawEnabled = on; if (!on) surface.engine.resetView(); }
     if (on && !toolbar) {
       toolbar = new Toolbar({
-        state, changed: () => { prefs.set('tool', state.tool === 'picker' ? 'pencil' : state.tool); prefs.set('size', state.size); prefs.set('eraserSize', state.eraserSize); prefs.set('opacity', state.opacity); prefs.set('inside.v2', state.inside); },
+        state, onEyedropper: startPicker, changed: () => { prefs.set('tool.v2', state.tool === 'picker' ? 'marker' : state.tool); prefs.set('size', state.size); prefs.set('eraserSize', state.eraserSize); prefs.set('opacity', state.opacity); prefs.set('inside.v2', state.inside); },
         undo: () => surface?.engine?.undo(), redo: () => surface?.engine?.redo(),
         canUndo: () => !!surface?.engine?.history.canUndo, canRedo: () => !!surface?.engine?.history.canRedo,
         lamp: toggleLamp, lampOn: () => lampOn,
@@ -353,7 +354,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
         pal.push(hex); prefs.set(key, pal.slice(-24));
         toolbar?.closePop(); toast('נוסף לפלטה של הדף');
       },
-      onEyedropper: () => { toolBeforePicker = state.tool === 'picker' ? 'pencil' : state.tool; state.tool = 'picker'; toolbar?.closePop(); toolbar?.update(); toast('געי בדף כדי לדגום צבע'); },
+      onEyedropper: startPicker,
     });
   }
 

@@ -19,6 +19,7 @@ export interface ToolbarHooks {
   fit: () => void;
   colorPanel: () => HTMLElement;
   layersPanel: () => HTMLElement;
+  onEyedropper?: () => void;
 }
 
 const TOOL_LABEL: Record<ToolName, string> = { pencil: 'עיפרון צבעוני', marker: 'טוש', eraser: 'מחק', picker: 'דוגם צבע' };
@@ -110,10 +111,13 @@ export class Toolbar {
 
   private toolMenu(): HTMLElement {
     const box = h('div', { class: 'menu', role: 'menu' });
-    for (const t of ['pencil', 'marker', 'eraser', 'picker'] as ToolName[]) {
+    for (const t of ['marker', 'eraser', 'picker', 'pencil'] as ToolName[]) {
       const b = h('button', { class: 'menu__item' + (this.k.state.tool === t ? ' is-on' : ''), type: 'button', role: 'menuitemradio', 'aria-checked': String(this.k.state.tool === t), html: TOOL_ICON[t] },
         h('span', {}, TOOL_LABEL[t]));
-      b.addEventListener('click', () => { this.k.state.tool = t; this.k.changed(); this.update(); this.closePop(); });
+      b.addEventListener('click', () => {
+        if (t === 'picker' && this.k.onEyedropper) { this.k.onEyedropper(); return; }
+        this.k.state.tool = t; this.k.changed(); this.update(); this.closePop();
+      });
       box.append(b);
     }
     box.append(h('p', { class: 'menu__hint' }, 'כפתור הצד של העט: מחק כל עוד הוא לחוץ'));

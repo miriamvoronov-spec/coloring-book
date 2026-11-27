@@ -149,7 +149,7 @@ export function coverFace(book: BookMeta, url: string | null, which: 'cover' | '
     face.insertAdjacentHTML('beforeend', ornament('front', book.coverColor));
     face.append(
       h('div', { class: 'cover__title', dir: 'auto' }, book.title),
-      h('div', { class: 'cover__by', dir: 'ltr' }, 'Miriam Coloring Books'));
+      h('div', { class: 'cover__by', dir: 'ltr' }, "Miriam's Coloring Books"));
   } else {
     face.insertAdjacentHTML('beforeend', ornament('back', book.coverColor));
   }

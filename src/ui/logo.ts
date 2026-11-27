@@ -1,8 +1,25 @@
 /** Original logo: an open coloring book with a pencil drawing a trail of stardust. */
+import { prefs } from '../app/store';
+import { logoMedallion, logoMoon, logoPalette } from './logos';
 
-export function logoMark(size = 220): string {
+export const LOGO_STYLES: { id: string; name: string }[] = [
+  { id: 'book', name: 'חוברת פתוחה' },
+  { id: 'medallion', name: 'מדליון זהב' },
+  { id: 'palette', name: 'פלטת צבעים' },
+  { id: 'moon', name: 'ירח וכוכבים' },
+];
+const LABEL = 'לוגו Miriam&#39;s Coloring Books';
+
+export function logoMark(size = 220, style = prefs.get('logoStyle', 'book')): string {
+  if (style === 'medallion') return logoMedallion(size, LABEL);
+  if (style === 'palette') return logoPalette(size, LABEL);
+  if (style === 'moon') return logoMoon(size, LABEL);
+  return bookLogo(size);
+}
+
+function bookLogo(size: number): string {
   return `
-<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="לוגו Miriam Coloring Books">
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="לוגו Miriam&#39;s Coloring Books">
   <defs>
     <linearGradient id="lg-gold" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#fff4c8"/><stop offset=".5" stop-color="#f0c766"/><stop offset="1" stop-color="#b98a33"/>
@@ -75,5 +92,5 @@ export function logoMark(size = 220): string {
 }
 
 export function logoFull(size = 220): string {
-  return `<div class="logo">${logoMark(size)}<div class="logo-word" dir="ltr">Miriam<span>Coloring Books</span></div></div>`;
+  return `<div class="logo">${logoMark(size)}<div class="logo-word" dir="ltr">Miriam&#39;s<span>Coloring Books</span></div></div>`;
 }

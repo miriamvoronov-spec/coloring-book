@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['icons/*.svg', 'music/**/*'],
         manifest: {
-          name: 'Miriam Coloring Books',
-          short_name: 'Coloring Books',
+          name: "Miriam's Coloring Books",
+          short_name: "Miriam's Coloring",
           description: 'חוברות צביעה לפי מספרים',
           lang: 'he',
           dir: 'rtl',

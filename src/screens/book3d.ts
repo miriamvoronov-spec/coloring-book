@@ -32,7 +32,7 @@ function build(book: BookMeta, front: string | null, back: string | null) {
       h('div', { class: 'book3d__mark', html: logoMark(120) }),
       h('div', { class: 'book3d__ttl', dir: 'auto' }, book.title),
       h('div', { class: 'book3d__rule', 'aria-hidden': 'true' }, h('span', {}, '✦')),
-      h('div', { class: 'book3d__sub', dir: 'ltr' }, 'Miriam Coloring Books')),
+      h('div', { class: 'book3d__sub', dir: 'ltr' }, "Miriam's Coloring Books")),
     h('div', { class: 'book3d__page-sheen' }));
   const backFace = h('div', { class: 'book3d__back' }, coverFace(book, back, 'back'));
   const spine = h('div', { class: 'book3d__spine' }, spineFace(book));

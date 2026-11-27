@@ -1,6 +1,8 @@
 /** Settings: her name (for the greeting), the app's look, sounds and sparkles, about. */
 import { go } from '../app/app';
-import { greeting, greetingIcon, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
+import { dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
+import { LOGO_STYLES, logoMark } from '../ui/logo';
+import { FLIP_SOUNDS, paperFlip, unlockAudio } from '../ui/sound';
 import { h, toast } from '../ui/dom';
 import { appBar } from '../ui/appbar';
 import { categoriesScreen } from './categories';
@@ -97,6 +99,22 @@ export function settingsScreen(el: HTMLElement) {
   ownPick.addEventListener('change', async () => { const fs = [...(ownPick.files ?? [])]; ownPick.value = ''; if (fs.length) { await addOwnTracks(chSel.value as Channel, fs); toast('השירים נוספו לערוץ'); void renderOwn(); } });
   void renderOwn();
 
+  // ----- logo and the daily line -----
+  const logos = h('div', { class: 'logo-grid', role: 'radiogroup', 'aria-label': 'לוגו' });
+  const curLogo = prefs.get('logoStyle', 'book');
+  for (const l of LOGO_STYLES) {
+    const b = h('button', { class: 'logo-choice' + (l.id === curLogo ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(l.id === curLogo) },
+      h('span', { class: 'logo-choice__art', html: logoMark(84, l.id) }), h('span', {}, l.name));
+    b.addEventListener('click', () => {
+      logos.querySelectorAll('.logo-choice').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); });
+      b.classList.add('is-on'); b.setAttribute('aria-checked', 'true');
+      prefs.set('logoStyle', l.id);
+    });
+    logos.append(b);
+  }
+  const linePreview = h('p', { class: 'set-label line-preview' }, '“' + dailyLine() + '”');
+  const lineSet = radios('סוג המשפט היומי', LINE_SETS.map((x) => [x.id, x.name] as [string, string]), prefs.get('lineSet', 'sweet'), (v) => { prefs.set('lineSet', v); linePreview.textContent = '“' + dailyLine(new Date(), v) + '”'; });
+
   // ----- toolbar and books -----
   const side = radios('מיקום סרגל הכלים', [['right', 'ימין'], ['left', 'שמאל'], ['top', 'למעלה'], ['bottom', 'למטה']], prefs.get('toolbarSide', 'right'), (v) => prefs.set('toolbarSide', v));
   const dir = radios('כיוון דפדוף', [['rtl', 'מימין לשמאל (עברית)'], ['ltr', 'משמאל לימין (אנגלית)']], prefs.get('defaultDirection', 'rtl'), (v) => prefs.set('defaultDirection', v));
@@ -131,6 +149,8 @@ export function settingsScreen(el: HTMLElement) {
         toggle('להציג ברכה לפי השעה', prefs.get('showGreeting', true), (v) => { prefs.set('showGreeting', v); hello.hidden = !v; }),
         toggle('להציג משפט חמוד שמתחלף כל יום', prefs.get('showLine', true), (v) => prefs.set('showLine', v))),
       section('עיצוב האפליקציה', themes, custom),
+      section('✨ לוגו', logos),
+      section('💬 המשפט היומי', h('p', { class: 'set-label' }, 'איזה סוג משפטים יופיע במסך הפתיחה. המשפט מתחלף כל יום.'), lineSet, linePreview),
       section('גופן הכותרות', fonts),
       section('🎵 מוזיקה',
         h('label', { for: 'set-ch', class: 'set-label' }, 'ערוץ'), chSel,
@@ -140,6 +160,8 @@ export function settingsScreen(el: HTMLElement) {
         h('button', { class: 'btn', type: 'button', onclick: () => ownPick.click() }, '＋ הוספת שירים מהמכשיר'), ownPick),
       section('קסם וצלילים',
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
+        h('p', { class: 'set-label' }, 'צליל הדפדוף (לחיצה משמיעה אותו)'),
+        radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'whisper'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
       section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
@@ -148,7 +170,7 @@ export function settingsScreen(el: HTMLElement) {
       section('📲 התקנה במסך הבית', h('p', { class: 'set-label' }, 'אייקון במסך הבית שפותח את האפליקציה בלחיצה אחת.'),
         h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => (await import('../ui/install')).installApp() }, '📲 להתקנה')),
       section('🌟 קרדיטים', credits),
-      section('אודות', h('p', { class: 'set-about' }, 'Miriam Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.')),
+      section('אודות', h('p', { class: 'set-about' }, "Miriam's Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.")),
     )));
   const onLeave = () => toast('ההגדרות נשמרו');
   return () => { if (name.value.trim() !== s.name) onLeave(); };

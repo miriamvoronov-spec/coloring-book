@@ -690,3 +690,10 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 
 .install-bar { position: fixed; z-index: 60; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; background: rgba(43,26,16,.92); border: 1px solid rgba(233,196,106,.5); box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: fadeUp .5s ease both; }
 @keyframes fadeUp { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ----- logo choice ----- */
+.logo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.logo-choice { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 14px; border: 2px solid rgba(255,241,184,.15); background: rgba(0,0,0,.2); min-height: 44px; }
+.logo-choice.is-on { border-color: var(--gold); box-shadow: 0 0 12px rgba(233,196,106,.35); }
+.logo-choice__art { display: grid; place-items: center; }
+.line-preview { font-style: italic; margin-top: 8px; }
