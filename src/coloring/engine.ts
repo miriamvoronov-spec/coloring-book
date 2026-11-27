@@ -212,9 +212,9 @@ export class PageEngine {
 
   selectLayer(id: string): void { const i = this.layers.findIndex((l) => l.id === id); if (i >= 0 && i !== this.activeIdx) { this.activeIdx = i; this.restack(); this.ev.onLayers?.(); } }
 
-  addLayer(): void {
+  addLayer(name?: string): void {
     this.structAction(() => {
-      const l = this.makeLayer({ id: layerId(), name: nextName(this.layers), visible: true, locked: false, opacity: 1, blend: 'normal' });
+      const l = this.makeLayer({ id: layerId(), name: name || nextName(this.layers), visible: true, locked: false, opacity: 1, blend: 'normal' });
       this.layers.splice(this.activeIdx + 1, 0, l);
       this.activeIdx += 1;
     });
@@ -605,6 +605,9 @@ export class PageEngine {
     if (xi < 0 || yi < 0 || xi >= this.W || yi >= this.H) { this.ev.onPick?.(null); return; }
     const t = document.createElement('canvas'); t.width = 5; t.height = 5;
     const tx = t.getContext('2d', { willReadFrequently: true })!;
+    // what she sees: the printed page (with its colour squares) under the colour layers
+    const ox = Math.max(0, xi - 2), oy = Math.max(0, yi - 2);
+    if (this.lines.naturalWidth) tx.drawImage(this.lines, ox * this.lines.naturalWidth / this.W, oy * this.lines.naturalHeight / this.H, 5 * this.lines.naturalWidth / this.W, 5 * this.lines.naturalHeight / this.H, 0, 0, 5, 5);
     for (const l of this.layers) if (l.visible) { tx.globalAlpha = l.opacity; tx.globalCompositeOperation = compositeOp(l.blend); tx.drawImage(l.canvas, -(Math.max(0, xi - 2)), -(Math.max(0, yi - 2))); }
     const d = tx.getImageData(0, 0, 5, 5).data;
     let r = 0, g = 0, b = 0, a = 0;

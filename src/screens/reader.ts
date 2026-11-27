@@ -7,6 +7,7 @@ import type { BookMeta, Category, PageRec } from '../app/types';
 import { PageEngine, type ToolState } from '../coloring/engine';
 import { Toolbar, enabledTools } from '../coloring/toolbar';
 import { colorPicker } from '../coloring/picker';
+import { hexToRgb } from '../app/raster';
 import { h, sheet, toast, reducedMotion } from '../ui/dom';
 import { coverFace, coverUrl, shade } from '../ui/cover';
 import { icons } from '../ui/icons';
@@ -218,7 +219,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     onPenWhileReading: () => { setColoring(true); return true; },
     onPick: (hex: string | null) => {
       state.tool = toolBeforePicker;
-      if (hex) { setColor(hex); toast('הצבע נדגם'); } else toast('אין כאן צבע לדגום');
+      if (hex) { setColor(hex); const l = keepSample(hex); toast(l ? `הצבע נשמר בפלטה ליד ${l} 🎨` : 'הצבע נדגם ונשמר בפלטה'); } else { pickInto = null; toast('אין כאן צבע לדגום'); }
       toolbar?.update();
     },
     onLayers: () => renderLayers(),
@@ -367,23 +368,83 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     toolbar?.update();
   }
 
-  function chip(hex: string, label?: string) {
-    const b = h('button', { class: 'legend__chip' + (label ? '' : ' legend__chip--plain'), type: 'button', 'aria-label': label ? `צבע מספר ${label}` : hex, title: hex, 'data-c': hex.toLowerCase() },
+  // ----- her own palette row under the page -----
+  // One slot per number/letter/sign of the page. A slot fills only with a colour she sampled herself
+  // (from the colour squares printed on the page), so nothing gives away which colour goes where.
+  type MyPal = { slots: Record<string, string>; extra: string[] };
+  let myPal: MyPal = { slots: {}, extra: [] };
+  let myPalPage = '';
+  let pickInto: string | null = null;   // a slot waiting for the eyedropper
+  const palKey = (id: string) => 'mypal-' + id;
+  async function loadMyPal() {
+    const page = surface?.page;
+    if (!page || page.id === myPalPage) return;
+    myPalPage = page.id;
+    myPal = (await store.kv<MyPal>(palKey(page.id))) ?? { slots: {}, extra: [] };
+    renderLegend();
+  }
+  const saveMyPal = () => { if (myPalPage) void store.setKv(palKey(myPalPage), myPal); };
+  const dist = (a: string, b: string) => { const [r1, g1, b1] = hexToRgb(a), [r2, g2, b2] = hexToRgb(b); return Math.hypot(r1 - r2, g1 - g2, b1 - b2); };
+  /** A sampled colour goes to the slot of the square it came from (the nearest printed colour), or to the extras. */
+  function keepSample(hex: string): string | null {
+    const page = surface?.page;
+    if (!page) return null;
+    let label: string | null = pickInto;
+    if (!label && page.legend.length) {
+      let best = Infinity;
+      for (const e of page.legend) { const d = dist(e.color, hex); if (d < best) { best = d; label = e.label; } }
+      if (best > 38) label = null;
+    }
+    pickInto = null;
+    if (label) myPal.slots[label] = hex;
+    else { myPal.extra = [hex, ...myPal.extra.filter((c) => c !== hex)].slice(0, 8); }
+    saveMyPal(); renderLegend();
+    return label;
+  }
+  function editSlot(label: string | null, hex: string) {
+    let cur = hex;
+    const close = sheet(label ? `הצבע של ${label}` : 'צבע בפלטה', h('div', {},
+      colorPicker({ color: hex, palette: [], recent: prefs.get<string[]>('recent', []), legend: [],
+        onChange: (c) => { cur = c; }, onAddToPalette: () => undefined, onEyedropper: () => { close(); pickInto = label; startPicker(); } }),
+      h('div', { class: 'sheet__actions' },
+        h('button', { class: 'btn btn--gold', type: 'button', onclick: () => {
+          if (label) myPal.slots[label] = cur; else myPal.extra = myPal.extra.map((c) => (c === hex ? cur : c));
+          saveMyPal(); setColor(cur); renderLegend(); close();
+        } }, 'שמירה'),
+        h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => {
+          if (label) delete myPal.slots[label]; else myPal.extra = myPal.extra.filter((c) => c !== hex);
+          saveMyPal(); renderLegend(); close();
+        } }, 'ריקון'))));
+  }
+  function chip(hex: string | null, label?: string) {
+    const b = h('button', { class: 'legend__chip' + (label ? '' : ' legend__chip--plain') + (hex ? '' : ' is-empty'), type: 'button',
+      'aria-label': label ? (hex ? `צבע ${label}` : `${label}: עוד לא נדגם. הקשה ואז נגיעה בקובייה בדף`) : (hex ?? ''), title: hex ?? 'לדגום צבע', 'data-c': (hex ?? '').toLowerCase() },
       h('span', { class: 'legend__dot' }), label ? h('span', { class: 'legend__num' }, label) : null);
-    (b.firstElementChild as HTMLElement).style.background = hex;
-    b.addEventListener('click', () => { setColor(hex); if (!coloring) setColoring(true); });
+    if (hex) (b.firstElementChild as HTMLElement).style.background = hex;
+    let timer = 0, long = false;
+    b.addEventListener('pointerdown', () => { long = false; timer = window.setTimeout(() => { long = true; if (hex) editSlot(label ?? null, hex); }, 550); });
+    b.addEventListener('pointerup', () => clearTimeout(timer));
+    b.addEventListener('pointerleave', () => clearTimeout(timer));
+    b.addEventListener('click', () => {
+      if (long) return;
+      if (!coloring) setColoring(true);
+      if (!hex) { pickInto = label ?? null; startPicker(); toast(`געי בקובייה של ${label} בדף כדי לדגום את הצבע שלה`); return; }
+      if (state.color.toLowerCase() === hex.toLowerCase()) { editSlot(label ?? null, hex); return; }
+      setColor(hex);
+    });
     return b;
   }
   function renderLegend() {
     legend.replaceChildren();
     const page = surface?.page;
-    // no colours under the page: they show only when she opens "🎨 צבעי הדף"
-    legend.hidden = true;
+    legend.hidden = !page || (!page.legend.length && !myPal.extra.length);
     if (!page) return;
-    for (const e of page.legend) legend.append(chip(e.color, e.label));
+    if (page.id !== myPalPage) { void loadMyPal(); return; }
+    for (const e of page.legend) legend.append(chip(myPal.slots[e.label] ?? null, e.label));
+    for (const c of myPal.extra) legend.append(chip(c));
     markLegend();
   }
-  const markLegend = () => legend.querySelectorAll<HTMLElement>('.legend__chip').forEach((c) => c.classList.toggle('is-on', c.dataset.c === state.color.toLowerCase()));
+  const markLegend = () => legend.querySelectorAll<HTMLElement>('.legend__chip').forEach((c) => c.classList.toggle('is-on', !!c.dataset.c && c.dataset.c === state.color.toLowerCase()));
 
   let recentTimer = 0;
   function setColor(hex: string) {
@@ -444,7 +505,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       color: state.color,
       palette: prefs.get<string[]>(key, []),
       recent: prefs.get<string[]>('recent', []),
-      legend: page?.legend ?? [],
+      legend: (page?.legend ?? []).filter((e) => myPal.slots[e.label]).map((e) => ({ label: e.label, color: myPal.slots[e.label] })),
       onChange: setColor,
       onAddToPalette: (hex) => {
         const pal = prefs.get<string[]>(key, []).filter((c) => c !== hex);
@@ -459,6 +520,20 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   let linesShown = true;
   let linesOpacity = 1;
   const applyLines = () => { if (surface?.engine) { surface.engine.linesVisible = linesShown; surface.engine.linesOpacity = linesOpacity; } };
+  /** Up to three main colours of a layer, from a tiny copy. */
+  function layerColours(c: HTMLCanvasElement): string[] {
+    const t = document.createElement('canvas'); t.width = 96; t.height = 96;
+    const x = t.getContext('2d', { willReadFrequently: true })!; x.drawImage(c, 0, 0, 96, 96);
+    const d = x.getImageData(0, 0, 96, 96).data;
+    const count = new Map<string, number>();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 50) continue;
+      const k = '#' + [d[i], d[i + 1], d[i + 2]].map((v) => Math.min(255, Math.round(v / 32) * 32).toString(16).padStart(2, '0')).join('');
+      count.set(k, (count.get(k) ?? 0) + 1);
+    }
+    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+  }
+
   let layersHost: HTMLElement | null = null;
   function layersPanel(): HTMLElement {
     layersHost = h('div', { class: 'layers' });
@@ -494,14 +569,21 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
         const down = h('button', { class: 'lyr__btn', type: 'button', 'aria-label': 'להוריד שכבה', disabled: i === 0 }, '▼');
         down.addEventListener('click', (ev) => { ev.stopPropagation(); eng.moveLayer(l.id, -1); });
         const name = h('span', { class: 'lyr__name', dir: 'auto' }, l.name);
-        const row = h('li', { class: 'lyr__row' + (l.active ? ' is-active' : ''), tabindex: 0, role: 'button', 'aria-label': `שכבה ${l.name}${l.active ? ' (פעילה)' : ''}` }, thumb, name, eye, lock, up, down);
+        // the colours painted on this layer
+        const dots = h('span', { class: 'lyr__dots', 'aria-hidden': 'true' });
+        for (const c of layerColours(l.thumb)) { const d = h('span', { class: 'lyr__dot' }); d.style.background = c; dots.append(d); }
+        const row = h('li', { class: 'lyr__row' + (l.active ? ' is-active' : ''), tabindex: 0, role: 'button', 'aria-label': `שכבה ${l.name}${l.active ? ' (פעילה)' : ''}` }, thumb, name, dots, eye, lock, up, down);
         row.addEventListener('click', () => eng.selectLayer(l.id));
         row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') eng.selectLayer(l.id); });
         rows.append(row);
       });
       const act = eng.activeLayer;
       const add = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, '＋ שכבה חדשה');
-      add.addEventListener('click', () => eng.addLayer());
+      add.addEventListener('click', () => {
+        // name it after the number of the colour in her hand, e.g. "צבע 3"
+        const lbl = Object.entries(myPal.slots).find(([, c]) => c.toLowerCase() === state.color.toLowerCase())?.[0];
+        eng.addLayer(lbl ? `צבע ${lbl}` : undefined);
+      });
       const dup = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, '⧉ שכפול');
       dup.addEventListener('click', () => eng.duplicateLayer(act.id));
       const del = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, list.length > 1 ? '🗑 מחיקה' : '🧽 ניקוי');

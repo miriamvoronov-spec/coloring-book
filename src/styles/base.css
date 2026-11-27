@@ -805,3 +805,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .lyr__btn.is-off { opacity: .6; }
 .lyr__actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .lyr__rename { min-width: 0; flex: 1; }
+.legend__chip.is-empty .legend__dot { background: repeating-conic-gradient(rgba(255,241,184,.18) 0 25%, transparent 0 50%) 0 0 / 10px 10px; border: 2px dashed rgba(255,241,184,.55); }
+.sheet__actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.lyr__dots { display: inline-flex; gap: 2px; flex: none; }
+.lyr__dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }

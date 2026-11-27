@@ -1,6 +1,6 @@
 /** Original logo: an open coloring book with a pencil drawing a trail of stardust. */
 import { prefs } from '../app/store';
-import { logoMedallion, logoMoon, logoPalette, logoPaletteBook } from './logos';
+import { logoCastle, logoCrown, logoHeart, logoMedallion, logoMoon, logoPalette, logoPaletteBook } from './logos';
 
 export const LOGO_STYLES: { id: string; name: string }[] = [
   { id: 'palettebook', name: 'פלטה וחוברת צבועה' },
@@ -8,6 +8,9 @@ export const LOGO_STYLES: { id: string; name: string }[] = [
   { id: 'medallion', name: 'מדליון זהב' },
   { id: 'palette', name: 'פלטת צבעים' },
   { id: 'moon', name: 'ירח וכוכבים' },
+  { id: 'castle', name: 'טירה וקשת' },
+  { id: 'heart', name: 'לב של צבעים' },
+  { id: 'crown', name: 'כתר צבעים' },
 ];
 const LABEL = 'לוגו Miriam&#39;s Coloring Books';
 
@@ -16,6 +19,9 @@ export function logoMark(size = 220, style = prefs.get('logoStyle', 'palettebook
   if (style === 'medallion') return logoMedallion(size, LABEL);
   if (style === 'palette') return logoPalette(size, LABEL);
   if (style === 'moon') return logoMoon(size, LABEL);
+  if (style === 'castle') return logoCastle(size, LABEL);
+  if (style === 'heart') return logoHeart(size, LABEL);
+  if (style === 'crown') return logoCrown(size, LABEL);
   return bookLogo(size);
 }
 
