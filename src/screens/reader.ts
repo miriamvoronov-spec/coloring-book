@@ -13,7 +13,7 @@ import { paperFlip } from '../ui/sound';
 import { closeBookAnimation } from './book3d';
 import { shelfScreen } from './shelf';
 
-type Entry = { kind: 'cover' } | { kind: 'page'; id: string } | { kind: 'congrats' };
+type Entry = { kind: 'cover' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
 
 interface Surface { el: HTMLElement; aspect: number; engine?: PageEngine; page?: PageRec; snapshot(): Node; destroy(): Promise<void> }
 
@@ -33,6 +33,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       entries.push({ kind: 'page', id: p.id });
     }
     if (book.madeWithClaude) entries.push({ kind: 'congrats' });
+    entries.push({ kind: 'back' });
   })();
 
   const state: ToolState = {
@@ -94,32 +95,54 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const p = coverId ? await store.page(coverId) : undefined;
     return { el: face, aspect: p ? p.width / p.height : 1 / 1.4, snapshot: () => face.cloneNode(true), destroy: async () => face.remove() };
   };
-  const congratsSurface = (): Surface => {
+  const backSurface = async (): Promise<Surface> => {
+    const url = backId ? await coverUrl(book, 'back') : null;
+    const face = coverFace(book, url, 'back');
+    const p = backId ? await store.page(backId) : undefined;
+    return { el: face, aspect: p ? p.width / p.height : 1 / 1.4, snapshot: () => face.cloneNode(true), destroy: async () => face.remove() };
+  };
+  /** "Well done" page in the cover colour: free colouring, no numbers. */
+  const congratsSurface = async (): Promise<Surface> => {
+    const W = 1600, H = 2240;
     const text = 'כל הכבוד! ✨';
     const letters = h('div', { class: 'congrats__text', dir: 'rtl' });
-    [...text].forEach((ch, i) => { const s = h('span', {}, ch === ' ' ? ' ' : ch); s.style.animationDelay = i * 0.08 + 's'; letters.append(s); });
-    const c = h('div', { class: 'congrats' }, h('div', { class: 'cover__frame' }), letters, h('p', { class: 'congrats__sub' }, 'סיימת את כל הדפים בחוברת'));
-    c.style.setProperty('--cover', book.coverColor);
-    return { el: c, aspect: 1 / 1.4, snapshot: () => c.cloneNode(true), destroy: async () => c.remove() };
+    [...text].forEach((ch, i) => { const s = h('span', {}, ch === ' ' ? '\u00a0' : ch); s.style.animationDelay = i * 0.08 + 's'; letters.append(s); });
+    const overlay = h('div', { class: 'congrats' }, h('div', { class: 'congrats__frame' }), letters, h('p', { class: 'congrats__sub' }, 'סיימת את כל הדפים. הדף הזה שלך לצביעה חופשית'));
+    const blank = document.createElement('canvas');
+    blank.width = 16; blank.height = 22;
+    const bx = blank.getContext('2d')!; bx.fillStyle = '#fff'; bx.fillRect(0, 0, 16, 22);
+    const image = await new Promise<Blob>((r) => blank.toBlob((b) => r(b!), 'image/png'));
+    const page: PageRec = { id: 'congrats-' + book.id, bookId: book.id, kind: 'coloring', width: W, height: H, image, labels: [], legend: [], numbersInImage: false };
+    const engine = new PageEngine(page, () => state, engineEvents(), {
+      paper: book.coverColor, overlay,
+      decorate: (x, w, hh) => {
+        x.save(); x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.font = `${Math.round(w * 0.12)}px "Suez One", serif`; x.fillStyle = '#f2c862';
+        x.fillText('כל הכבוד!', w / 2, hh * 0.42); x.restore();
+      },
+    });
+    engine.drawEnabled = coloring;
+    return { el: engine.el, aspect: W / H, engine, page, snapshot: () => engine.snapshot(1200), destroy: () => engine.destroy() };
   };
+  const engineEvents = () => ({
+    onHistory: () => toolbar?.update(),
+    onSwipe: (d: 1 | -1) => void flip(d),
+    onPenWhileReading: () => { setColoring(true); return true; },
+    onPick: (hex: string | null) => {
+      state.tool = toolBeforePicker;
+      if (hex) { setColor(hex); toast('הצבע נדגם'); } else toast('אין כאן צבע לדגום');
+      toolbar?.update();
+    },
+  });
   const pageSurface = async (id: string): Promise<Surface> => {
     const page = await store.page(id);
     if (!page) throw new Error('page missing');
-    const engine = new PageEngine(page, () => state, {
-      onHistory: () => toolbar?.update(),
-      onSwipe: (d) => void flip(d),
-      onPenWhileReading: () => { setColoring(true); return true; },
-      onPick: (hex) => {
-        state.tool = toolBeforePicker;
-        if (hex) { setColor(hex); toast('הצבע נדגם'); } else toast('אין כאן צבע לדגום');
-        toolbar?.update();
-      },
-    });
+    const engine = new PageEngine(page, () => state, engineEvents());
     engine.drawEnabled = coloring;
     engine.linesVisible = linesShown; engine.linesOpacity = linesOpacity; engine.numbersVisible = numbersShown;
     return { el: engine.el, aspect: page.width / page.height, engine, page, snapshot: () => engine.snapshot(1200), destroy: () => engine.destroy() };
   };
-  const makeSurface = (e: Entry) => e.kind === 'cover' ? coverSurface() : e.kind === 'congrats' ? Promise.resolve(congratsSurface()) : pageSurface(e.id);
+  const makeSurface = (e: Entry) => e.kind === 'cover' ? coverSurface() : e.kind === 'back' ? backSurface() : e.kind === 'congrats' ? congratsSurface() : pageSurface(e.id);
 
   const leafFace = (content: Node, cls: string) => {
     const f = h('div', { class: 'leaf__face ' + cls });
@@ -135,7 +158,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const oldSnap = old?.snapshot();
     let cover: HTMLElement | null = null;
     if (oldSnap) { cover = h('div', { class: 'leaf-static' }); cover.append(oldSnap); host.append(cover); }
-    if (old) await old.destroy();
+    if (old) void old.destroy();
     index = i;
     const next = await makeSurface(entries[i]);
     surface = next;
@@ -147,18 +170,27 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     paperFlip();
     const leaf = h('div', { class: 'leaf' + (rtl ? ' leaf--rtl' : '') });
     const shade = h('div', { class: 'leaf-shade' });
-    const dur = 720;
+    const dur = 900;
+    const ease = 'cubic-bezier(.25,.1,.25,1)';
     if (dir === 1) {
-      leaf.append(leafFace(oldSnap!.cloneNode(true), 'leaf__front'), leafFace(h('div', { class: 'leaf__paper' }), 'leaf__back'));
+      leaf.append(leafFace(oldSnap!, 'leaf__front'), leafFace(h('div', { class: 'leaf__paper' }), 'leaf__back'));
       cover.remove();
       host.append(shade, leaf);
-      shade.animate([{ opacity: 0.5 }, { opacity: 0 }], { duration: dur, easing: 'ease-in' });
-      await leaf.animate([{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${-180 * sign}deg)` }], { duration: dur, easing: 'cubic-bezier(.4,.1,.3,1)', fill: 'forwards' }).finished;
+      shade.animate([{ opacity: 0.45 }, { opacity: 0.25, offset: 0.5 }, { opacity: 0 }], { duration: dur, easing: ease });
+      lightOn(leaf, dur, false);
+      await leaf.animate([
+        { transform: 'rotateY(0deg)' },
+        { transform: `rotateY(${-90 * sign}deg) translateZ(8px)`, offset: 0.5 },
+        { transform: `rotateY(${-180 * sign}deg)` }], { duration: dur, easing: ease, fill: 'forwards' }).finished;
     } else {
       leaf.append(leafFace(next.snapshot(), 'leaf__front'), leafFace(h('div', { class: 'leaf__paper' }), 'leaf__back'));
       host.append(shade, leaf);
-      shade.animate([{ opacity: 0 }, { opacity: 0.5 }], { duration: dur, easing: 'ease-out' });
-      await leaf.animate([{ transform: `rotateY(${-180 * sign}deg)` }, { transform: 'rotateY(0deg)' }], { duration: dur, easing: 'cubic-bezier(.4,.1,.3,1)', fill: 'forwards' }).finished;
+      shade.animate([{ opacity: 0 }, { opacity: 0.25, offset: 0.5 }, { opacity: 0.45 }], { duration: dur, easing: ease });
+      lightOn(leaf, dur, true);
+      await leaf.animate([
+        { transform: `rotateY(${-180 * sign}deg)` },
+        { transform: `rotateY(${-90 * sign}deg) translateZ(8px)`, offset: 0.5 },
+        { transform: 'rotateY(0deg)' }], { duration: dur, easing: ease, fill: 'forwards' }).finished;
       cover.remove();
     }
     leaf.remove(); shade.remove();
@@ -166,8 +198,19 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     afterShow();
   }
 
+  /** Light sweeping across the turning page, so it reads as curved paper. */
+  function lightOn(leaf: HTMLElement, dur: number, reverse: boolean) {
+    leaf.querySelectorAll<HTMLElement>('.leaf__face').forEach((f) => {
+      const g = h('div', { class: 'leaf__light' });
+      f.append(g);
+      const k = [{ opacity: 0 }, { opacity: 0.55, offset: 0.45 }, { opacity: 0 }];
+      g.animate(reverse ? k.reverse() : k, { duration: dur });
+    });
+  }
+
   function afterShow() {
     prefs.set('lastPage.' + book.id, index);
+    setTimeout(() => surface?.engine?.prepare(), 120);
     if (entries[index].kind === 'congrats') {
       confetti(160);
       const r = host.getBoundingClientRect();
@@ -189,7 +232,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     surface = null;
     root.classList.add('reader--closing');
     void backId;
-    await closeBookAnimation(book);
+    await closeBookAnimation(book, entries[index]?.kind === 'back');
     go((r) => shelfScreen(r, cat), 'fade');
   }
 
@@ -198,11 +241,11 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const e = entries[index];
     const pageNo = entries.slice(0, index + 1).filter((x) => x.kind === 'page').length;
     const total = entries.filter((x) => x.kind === 'page').length;
-    counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
+    counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'back' ? 'כריכה אחורית' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
     const isPage = e.kind === 'page';
     solutionBtn.hidden = !isPage;
-    modeBtn.hidden = !isPage;
-    if (!isPage && coloring) setColoring(false);
+    modeBtn.hidden = !isPage && e.kind !== 'congrats';
+    if (modeBtn.hidden && coloring) setColoring(false);
     prevBtn.disabled = index === 0;
     nextBtn.setAttribute('aria-label', index === entries.length - 1 ? 'סגירת החוברת' : 'העמוד הבא');
     renderLegend();

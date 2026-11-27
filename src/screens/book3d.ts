@@ -74,10 +74,25 @@ export async function openBookAnimation(book: BookMeta, front: string | null, fr
   stage.remove();
 }
 
-export async function closeBookAnimation(book: BookMeta): Promise<void> {
+export async function closeBookAnimation(book: BookMeta, fromBack = false): Promise<void> {
   const [front, back] = await Promise.all([coverUrl(book), coverUrl(book, 'back')]);
   const { stage, b, hinge, sign } = build(book, front, back);
   stage.style.background = 'rgba(12,6,2,.78)';
+  if (fromBack && !reducedMotion()) {
+    // already looking at the back cover: turn it a little to show the spine, then put it back on the shelf
+    b.style.transform = `rotateY(${180 * sign}deg)`;
+    await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    await anim(b, [{ transform: `rotateY(${180 * sign}deg)` }, { transform: `rotateY(${150 * sign}deg) rotateX(-6deg)` }], { duration: 700, easing: 'ease-in-out' });
+    chime();
+    sparkle(innerWidth / 2, innerHeight / 2, 50, 6);
+    stage.animate([{ background: 'rgba(12,6,2,.78)' }, { background: 'rgba(12,6,2,0)' }], { duration: 700, fill: 'forwards' });
+    await anim(b, [
+      { transform: `rotateY(${150 * sign}deg) rotateX(-6deg)` },
+      { transform: `translate3d(0,${innerHeight * 0.25}px,-300px) scale(.35) rotateY(${120 * sign}deg)`, opacity: 0 },
+    ], { duration: 750, easing: 'ease-in' });
+    stage.remove();
+    return;
+  }
   hinge.style.transform = `rotateY(${-168 * sign}deg)`;
   if (reducedMotion()) { await wait(200); stage.remove(); return; }
   await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 250 });

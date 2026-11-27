@@ -27,6 +27,13 @@ export interface EngineEvents {
   onZoom?: (zoom: number) => void;
 }
 
+/** Optional look for special pages, e.g. the free "well done" page in the cover colour. */
+export interface EngineLook {
+  paper?: string;
+  overlay?: HTMLElement;
+  decorate?: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
+}
+
 interface Ptr { id: number; type: string; x: number; y: number; sx: number; sy: number; t0: number }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -65,7 +72,7 @@ export class PageEngine {
   private ro: ResizeObserver;
   lampValue: string | null = null;
 
-  constructor(readonly page: PageRec, private tools: () => ToolState, private ev: EngineEvents = {}) {
+  constructor(readonly page: PageRec, private tools: () => ToolState, private ev: EngineEvents = {}, private look: EngineLook = {}) {
     this.W = page.width; this.H = page.height;
     const mk = <K extends keyof HTMLElementTagNameMap>(t: K, c: string) => { const e = document.createElement(t); e.className = c; return e; };
     this.el = mk('div', 'pv') as HTMLDivElement;
@@ -89,7 +96,9 @@ export class PageEngine {
     this.lamp = mk('canvas', 'pv__lamp') as HTMLCanvasElement;
     this.lamp.width = Math.round(this.W / 2); this.lamp.height = Math.round(this.H / 2);
     this.lamp.hidden = true;
+    if (this.look.paper) paper.style.background = this.look.paper;
     this.stage.append(paper, this.color, this.stroke, this.lines, this.lamp, this.numbers);
+    if (this.look.overlay) { this.look.overlay.classList.add('pv__overlay'); this.stage.append(this.look.overlay); }
     this.el.append(this.stage);
     this.renderNumbers();
 
@@ -114,8 +123,14 @@ export class PageEngine {
         bmp.close();
       } catch { /* start blank */ }
     }
-    // region map for "inside the lines" and the lamp, computed after first paint
-    setTimeout(() => this.buildRegions(), 30);
+  }
+
+  /** Build the region map when the main thread is idle (after a page flip), so animations stay smooth. */
+  prepare(): void {
+    if (this.map) return;
+    const run = () => { if (!this.map && this.color.width) this.buildRegions(); };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
+    if (ric) ric(run, { timeout: 1500 }); else setTimeout(run, 400);
   }
 
   private buildRegions() {
@@ -348,6 +363,7 @@ export class PageEngine {
     this.drawPtr = e.pointerId;
     this.stroke.style.opacity = this.strokeTool === 'eraser' ? '1' : String(t.opacity);
     this.clip = null;
+    if (t.inside && this.strokeTool !== 'eraser' && !this.map) this.buildRegions();
     if (t.inside && this.strokeTool !== 'eraser' && this.map) {
       const { x, y } = this.toPage(e);
       const id = regionAt(this.map, x, y, 8);
@@ -438,6 +454,7 @@ export class PageEngine {
   setLamp(hex: string | null): { ok: true; value: string } | { ok: false; reason: 'off' | 'no-legend' | 'no-match' | 'not-ready' } {
     if (!hex) { this.lampValue = null; this.lamp.hidden = true; this.el.classList.remove('pv--lamp'); this.renderNumbers(); return { ok: false, reason: 'off' }; }
     if (!this.page.legend.length || !this.page.labels.length) return { ok: false, reason: 'no-legend' };
+    if (!this.map) this.buildRegions();
     if (!this.map) return { ok: false, reason: 'not-ready' };
     const value = legendLabelFor(this.page.legend, hex);
     if (value === null) return { ok: false, reason: 'no-match' };
@@ -481,12 +498,13 @@ export class PageEngine {
     const c = document.createElement('canvas');
     c.width = Math.round(this.W * k); c.height = Math.round(this.H * k);
     const x = c.getContext('2d')!;
-    x.fillStyle = '#fffdf8'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = this.look.paper ?? '#fffdf8'; x.fillRect(0, 0, c.width, c.height);
     x.drawImage(this.color, 0, 0, c.width, c.height);
     x.globalCompositeOperation = 'multiply';
     if (this.lines.naturalWidth) x.drawImage(this.lines, 0, 0, c.width, c.height);
     x.globalCompositeOperation = 'source-over';
     if (!this.page.numbersInImage) drawNumbers(x, this.page.labels, k);
+    this.look.decorate?.(x, c.width, c.height);
     return c;
   }
 
@@ -526,12 +544,12 @@ export class PageEngine {
   }
 
   async destroy(): Promise<void> {
-    await this.save();
+    this.el.remove();
     this.ro.disconnect();
+    await this.save();
     URL.revokeObjectURL(this.linesUrl);
     this.maskCache.clear();
     this.color.width = 0; this.stroke.width = 0; this.lamp.width = 0;
-    this.el.remove();
   }
 }
 
