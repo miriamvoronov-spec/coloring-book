@@ -1,6 +1,5 @@
 /** Category cards: open a bookshelf, add, rename, choose an icon. */
 import { jobsBox } from '../ui/jobs';
-import { offerInstallOnce } from '../ui/install';
 import { BOOKS_CHANGED } from '../app/jobs';
 import { addCategory, go } from '../app/app';
 import { prefs, store } from '../app/store';
@@ -93,7 +92,6 @@ export function categoriesScreen(el: HTMLElement) {
     grid,
     h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
 
-  offerInstallOnce();
   const render = async () => {
     const [cats, books] = await Promise.all([store.categories(), store.books()]);
     grid.replaceChildren();
