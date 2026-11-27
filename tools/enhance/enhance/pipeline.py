@@ -13,7 +13,7 @@ class Stage:
 
 
 STAGES: list[Stage] = [
-    Stage("extract", "חילוץ מקור (PyMuPDF, תמונה טבעית או 600dpi, implemented=True)", "extract"),
+    Stage("extract", "חילוץ מקור (PyMuPDF, תמונה טבעית או 600dpi)", "extract", implemented=True),
     Stage("classify", "סיווג עמודים: כריכות, צביעה, פתרונות", "classify", implemented=True),
     Stage("match", "שיוך פתרונות לדפי ציור (feature matching)", "match"),
     Stage("dewarp", "יישור דף מעוגל ותיקון פרספקטיבה", "dewarp"),
