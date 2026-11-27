@@ -172,7 +172,7 @@ async function fromEntries(entries: Entry[], jsonByName: Map<string, unknown>, m
   for (const p of pages) await store.putPage(p);
   const book: BookMeta = {
     id: bookId, categoryId: cat.id, title: manifest?.title || fallbackTitle,
-    coverColor: manifest?.coverColor || '#7a3f22', direction: manifest?.direction || 'ltr',
+    coverColor: manifest?.coverColor || '#7a3f22', direction: manifest?.direction || 'rtl',
     madeWithClaude: cat.role === 'claude', pageIds: pages.map((p) => p.id), createdAt: Date.now(),
   };
   await store.putBook(book);

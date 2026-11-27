@@ -9,7 +9,7 @@ import { categoriesScreen } from './categories';
 import { openBookAnimation } from './book3d';
 import { readerScreen } from './reader';
 
-const SWATCHES = ['#6b3fa0', '#1f5f8b', '#2f7d5b', '#a33b3b', '#c27b2a', '#d4577f', '#2c2c54', '#8b5a2b', '#3d6e70', '#b8860b'];
+const SWATCHES = ['#1f2c5c', '#7a1f2b', '#1f5a45', '#4a2058', '#1d4f5a', '#5a3218', '#8c3a55', '#2f4a22', '#2e3440', '#8a5a14'];
 
 export function shelfScreen(el: HTMLElement, cat: Category) {
   const shelves = h('div', { class: 'shelves' });
@@ -60,7 +60,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
 
   const bookOnShelf = async (b: BookMeta) => {
     const url = await coverUrl(b);
-    const book = h('button', { class: 'shelf-book', type: 'button', 'aria-label': `פתיחת ${b.title}` },
+    const book = h('button', { class: 'shelf-book' + (b.direction === 'rtl' ? ' shelf-book--rtl' : ''), type: 'button', 'aria-label': `פתיחת ${b.title}` },
       h('div', { class: 'shelf-book__body' }, spineFace(b), coverFace(b, url), h('div', { class: 'shelf-book__pages' })),
       h('div', { class: 'shelf-book__label', dir: 'auto' }, b.title));
     book.addEventListener('click', async () => {
@@ -88,6 +88,9 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     custom.addEventListener('input', () => { color = custom.value; mark(); });
     sw.append(custom);
     mark();
+    const dirSel = h('select', { class: 'field', id: 'book-dir' },
+      h('option', { value: 'rtl', selected: b.direction === 'rtl' }, 'מימין לשמאל (עברית)'),
+      h('option', { value: 'ltr', selected: b.direction === 'ltr' }, 'משמאל לימין (אנגלית)'));
     const catSel = h('select', { class: 'field', id: 'book-cat' });
     void store.categories().then((cats) => {
       for (const c of cats) catSel.append(h('option', { value: c.id, selected: c.id === b.categoryId }, `${c.icon} ${c.name}`));
@@ -98,11 +101,12 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     const body = h('div', { class: 'form' },
       h('label', { for: 'book-name' }, 'שם החוברת'), name,
       h('label', {}, 'צבע כריכה'), sw,
+      h('label', { for: 'book-dir' }, 'כיוון הדפדוף'), dirSel,
       h('label', { for: 'book-cat' }, 'קטגוריה'), catSel,
       h('div', { class: 'form__actions' }, save, share, del));
     const close = sheet('עריכת חוברת', body);
     save.addEventListener('click', async () => {
-      await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, categoryId: catSel.value || b.categoryId });
+      await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId });
       close(); await refresh();
     });
     let armed = false;

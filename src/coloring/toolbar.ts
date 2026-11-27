@@ -46,7 +46,7 @@ export class Toolbar {
       grip,
       btn('tool', 'כלי', icons.pencil, (b) => this.toggle(b, () => this.toolMenu())),
       color,
-      btn('size', 'גודל ושקיפות', icons.size, (b) => this.toggle(b, () => this.sizeMenu())),
+      btn('size', 'גודל העט והמחק, ואטימות', icons.size, (b) => this.toggle(b, () => this.sizeMenu())),
       btn('lamp', 'מנורה: הדגשת המספר של הצבע', icons.bulb, () => { k.lamp(); this.update(); }),
       btn('inside', 'צביעה בתוך הקווים', icons.inside, () => { k.state.inside = !k.state.inside; k.changed(); this.update(); }),
       h('div', { class: 'tb__sep' }),
@@ -122,23 +122,27 @@ export class Toolbar {
 
   private sizeMenu(): HTMLElement {
     const s = this.k.state;
-    const dot = h('div', { class: 'size-dot' });
+    const pen = h('div', { class: 'size-dot' });
+    const er = h('div', { class: 'size-dot size-dot--eraser' });
     const paint = () => {
       const d = Math.max(3, Math.min(64, s.size * 1.1));
-      dot.style.width = dot.style.height = d + 'px';
-      dot.style.background = s.color; dot.style.opacity = String(s.opacity);
+      pen.style.width = pen.style.height = d + 'px';
+      pen.style.background = s.color; pen.style.opacity = String(s.opacity);
+      const e = Math.max(4, Math.min(64, s.eraserSize * 1.1));
+      er.style.width = er.style.height = e + 'px';
     };
-    const size = h('input', { type: 'range', class: 'slider', id: 'tool-size', min: 1, max: 60, value: s.size, 'aria-label': 'גודל' });
-    const op = h('input', { type: 'range', class: 'slider', id: 'tool-opacity', min: 5, max: 100, value: Math.round(s.opacity * 100), 'aria-label': 'שקיפות' });
-    const sv = h('output', { for: 'tool-size' }, String(s.size));
-    const ov = h('output', { for: 'tool-opacity' }, Math.round(s.opacity * 100) + '%');
-    size.addEventListener('input', () => { s.size = Number(size.value); sv.textContent = size.value; paint(); this.k.changed(); });
-    op.addEventListener('input', () => { s.opacity = Number(op.value) / 100; ov.textContent = op.value + '%'; paint(); this.k.changed(); });
+    const slider = (id: string, label: string, min: number, max: number, value: number, fmt: (v: number) => string, set: (v: number) => void) => {
+      const input = h('input', { type: 'range', class: 'slider', id, min, max, value, 'aria-label': label });
+      const out = h('output', { for: id }, fmt(value));
+      input.addEventListener('input', () => { const v = Number(input.value); set(v); out.textContent = fmt(v); paint(); this.k.changed(); });
+      return [h('label', { for: id }, label + ' ', out), input];
+    };
     paint();
     return h('div', { class: 'sizes' },
-      h('div', { class: 'sizes__preview' }, dot),
-      h('label', { for: 'tool-size' }, 'גודל ', sv), size,
-      h('label', { for: 'tool-opacity' }, 'אטימות ', ov), op);
+      h('div', { class: 'sizes__preview' }, pen, er),
+      ...slider('tool-size', 'גודל העיפרון והטוש', 1, 60, s.size, String, (v) => { s.size = v; }),
+      ...slider('eraser-size', 'גודל המחק', 2, 100, s.eraserSize, String, (v) => { s.eraserSize = v; }),
+      ...slider('tool-opacity', 'אטימות', 5, 100, Math.round(s.opacity * 100), (v) => v + '%', (v) => { s.opacity = v / 100; }));
   }
 
   // ----- drag to any edge -----

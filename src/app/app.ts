@@ -1,6 +1,6 @@
 /** Screen flow: splash → categories → bookshelf → book. */
 import { store, uid } from './store';
-import { makeDemoBook } from './demo';
+import { DEMO_COVER, makeDemoBook } from './demo';
 import type { Category } from './types';
 
 export type Cleanup = (() => void) | void;
@@ -42,6 +42,10 @@ export async function seed(): Promise<void> {
     for (const p of pages) await store.putPage(p);
     await store.putBook(book);
     await store.setKv('seeded-demo', true);
+  }
+  // the first version gave the demo book a flat purple cover
+  for (const b of await store.books()) {
+    if (b.demo && b.coverColor === '#6b3fa0') await store.putBook({ ...b, coverColor: DEMO_COVER, direction: 'rtl' });
   }
 }
 

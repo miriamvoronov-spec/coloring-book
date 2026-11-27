@@ -37,7 +37,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   const state: ToolState = {
     tool: prefs.get('tool', 'pencil'), color: prefs.get('color', '#ef476f'),
-    size: prefs.get('size', 14), opacity: prefs.get('opacity', 1), inside: prefs.get('inside', false),
+    size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: prefs.get('inside', false),
   };
   if (state.tool === 'picker') state.tool = 'pencil';
   let coloring = false;
@@ -248,7 +248,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     if (surface?.engine) { surface.engine.drawEnabled = on; if (!on) surface.engine.resetView(); }
     if (on && !toolbar) {
       toolbar = new Toolbar({
-        state, changed: () => { prefs.set('tool', state.tool === 'picker' ? 'pencil' : state.tool); prefs.set('size', state.size); prefs.set('opacity', state.opacity); prefs.set('inside', state.inside); },
+        state, changed: () => { prefs.set('tool', state.tool === 'picker' ? 'pencil' : state.tool); prefs.set('size', state.size); prefs.set('eraserSize', state.eraserSize); prefs.set('opacity', state.opacity); prefs.set('inside', state.inside); },
         undo: () => surface?.engine?.undo(), redo: () => surface?.engine?.redo(),
         canUndo: () => !!surface?.engine?.history.canUndo, canRedo: () => !!surface?.engine?.history.canRedo,
         lamp: toggleLamp, lampOn: () => lampOn,

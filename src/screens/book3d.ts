@@ -1,7 +1,7 @@
 /** 3D book: pulled from the shelf, spun, flashed with magic, and opened. Also the closing animation. */
 import type { BookMeta } from '../app/types';
 import { h, reducedMotion, wait } from '../ui/dom';
-import { coverFace, coverUrl, spineFace } from '../ui/cover';
+import { coverFace, coverUrl, shade, spineFace } from '../ui/cover';
 import { sparkle } from '../ui/sparkles';
 import { chime, paperFlip } from '../ui/sound';
 
@@ -15,11 +15,17 @@ function build(book: BookMeta, front: string | null, back: string | null) {
   const rtl = book.direction === 'rtl';
   const stage = h('div', { class: 'book3d-stage', 'aria-hidden': 'true' });
   const b = h('div', { class: 'book3d' + (rtl ? ' book3d--rtl' : '') });
-  b.style.cssText = `width:${W}px;height:${H}px;margin-left:${-W / 2}px;margin-top:${-H / 2}px;--T:${T}px;--W:${W}px;--H:${H}px`;
+  b.style.cssText = `width:${W}px;height:${H}px;margin-left:${-W / 2}px;margin-top:${-H / 2}px;--T:${T}px;--W:${W}px;--H:${H}px;--endpaper:${shade(book.coverColor, -0.06)};--cover:${book.coverColor}`;
   const hinge = h('div', { class: 'book3d__front' },
     h('div', { class: 'book3d__out' }, coverFace(book, front)),
     h('div', { class: 'book3d__in' }));
-  const page = h('div', { class: 'book3d__page' }, h('div', { class: 'book3d__page-sheen' }));
+  const page = h('div', { class: 'book3d__page' },
+    h('div', { class: 'book3d__titlepage' },
+      h('div', { class: 'book3d__orn', 'aria-hidden': 'true' }, '❦'),
+      h('div', { class: 'book3d__ttl', dir: 'auto' }, book.title),
+      h('div', { class: 'book3d__rule', 'aria-hidden': 'true' }),
+      h('div', { class: 'book3d__sub', dir: 'ltr' }, 'Miriam Coloring Books')),
+    h('div', { class: 'book3d__page-sheen' }));
   const backFace = h('div', { class: 'book3d__back' }, coverFace(book, back, 'back'));
   const spine = h('div', { class: 'book3d__spine' }, spineFace(book));
   const edge = h('div', { class: 'book3d__edge' });

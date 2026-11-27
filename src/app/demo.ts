@@ -156,6 +156,9 @@ function labelsFrom(c: HTMLCanvasElement, seeds: Seed[]): Label[] {
 
 const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
 
+/** Midnight-blue leather with gold tooling. */
+export const DEMO_COVER = '#1f2c5c';
+
 export const DEMO_LEGEND: LegendEntry[] = [
   { label: '1', color: '#8fd3f4' },
   { label: '2', color: '#efe9ff' },
@@ -179,7 +182,7 @@ export async function makeDemoBook(categoryId: string): Promise<{ book: BookMeta
     });
   }
   const book: BookMeta = {
-    id: bookId, categoryId, title: 'חוברת הדמו הקסומה', coverColor: '#6b3fa0', direction: 'ltr',
+    id: bookId, categoryId, title: 'חוברת הדמו הקסומה', coverColor: DEMO_COVER, direction: 'rtl',
     madeWithClaude: true, pageIds: pages.map((p) => p.id), createdAt: Date.now(), demo: true,
   };
   return { book, pages };

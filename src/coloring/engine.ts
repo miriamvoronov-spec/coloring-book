@@ -13,6 +13,7 @@ export interface ToolState {
   tool: ToolName;
   color: string;
   size: number;
+  eraserSize: number;
   opacity: number;
   inside: boolean;
 }
@@ -326,7 +327,10 @@ export class PageEngine {
   }
 
   // ----- strokes -----
-  private diameter(): number { return this.tools().size * (Math.max(this.W, this.H) / 1000); }
+  private diameter(): number {
+    const t = this.tools();
+    return (this.strokeTool === 'eraser' ? t.eraserSize : t.size) * (Math.max(this.W, this.H) / 1000);
+  }
 
   private pt(e: PointerEvent): StrokePoint {
     const { x, y } = this.toPage(e);
