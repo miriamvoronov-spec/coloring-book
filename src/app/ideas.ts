@@ -40,3 +40,11 @@ export function surprise(category?: string): string {
   const c = POOL[cats[Math.floor(Math.random() * cats.length)]];
   return `${c.subjects[Math.floor(Math.random() * c.subjects.length)]} ${c.twists[Math.floor(Math.random() * c.twists.length)]}`;
 }
+
+/** Whole-book themes for "הפתע אותי" in the themed-book tab: a cast in a role (15 × 16 = 240). */
+const CASTS = ['פירות הדר', 'חתולים', 'ינשופים', 'עוגות ומאפים', 'פרחי בר', 'דינוזאורים קטנים', 'ספלי תה', 'ארנבים', 'פטריות', 'כוכבי לכת', 'פינגווינים', 'צבעי מים', 'קיפודים', 'דובונים', 'שבלולים'];
+const ROLES = ['בתפקיד שוליית המכשף', 'בנשף בארמון', 'כשודדי ים', 'במסע לירח', 'כפיות היער', 'כאבירים ונסיכות', 'בקרקס קסום', 'בבית ספר לקוסמים', 'מתחת לים', 'בחורף מושלג', 'בגן ורדים סודי', 'ברכבת של לילה', 'בחנות ממתקים', 'במסיבת תה של מלכה', 'בעיר של עננים', 'בספרייה מכושפת'];
+
+export function surpriseTheme(): string {
+  return `${CASTS[Math.floor(Math.random() * CASTS.length)]} ${ROLES[Math.floor(Math.random() * ROLES.length)]}`;
+}

@@ -1,6 +1,6 @@
 /** Category cards: open a bookshelf, add, rename, choose an icon. */
 import { addCategory, go } from '../app/app';
-import { store } from '../app/store';
+import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
 import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { logoMark } from '../ui/logo';
@@ -32,6 +32,22 @@ function editCategory(cat: Category | null, refresh: () => void) {
   const actions = h('div', { class: 'form__actions' });
   const save = h('button', { class: 'btn btn--gold', type: 'button' }, cat ? 'שמירה' : 'הוספה');
   actions.append(save);
+  if (cat) {
+    const move = async (d: -1 | 1) => {
+      const cats = await store.categories();
+      const i = cats.findIndex((c) => c.id === cat.id), j = i + d;
+      if (j < 0 || j >= cats.length) return;
+      const a = cats[i], b = cats[j];
+      [a.order, b.order] = [b.order, a.order];
+      if (a.order === b.order) { a.order = j; b.order = i; }
+      await store.putCategory(a); await store.putCategory(b);
+      cat.order = a.order;
+      refresh();
+    };
+    actions.append(
+      h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => void move(-1) }, '→ הזזה להתחלה'),
+      h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => void move(1) }, 'הזזה לסוף ←'));
+  }
   if (cat && !cat.role) {
     const del = h('button', { class: 'btn btn--ghost', type: 'button' }, 'מחיקת הקטגוריה');
     del.addEventListener('click', async () => {
@@ -63,10 +79,10 @@ export function categoriesScreen(el: HTMLElement) {
   });
   const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click() }, '📥 הוספת חוברת PDF');
   el.append(h('main', { class: 'categories' },
-    appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf] }), pick,
-    h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
+    appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf], home: 'splash' }), pick,
+    !prefs.get('showGreeting', true) ? null : h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
       settings().name ? '' : h('button', { class: 'greet__ask', type: 'button', onclick: async () => { const { settingsScreen } = await import('./settings'); go(settingsScreen, 'forward'); } }, 'איך קוראים לך?')),
-    h('p', { class: 'greet__line' }, dailyLine()),
+    prefs.get('showLine', true) ? h('p', { class: 'greet__line' }, dailyLine()) : null,
     grid,
     h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
 

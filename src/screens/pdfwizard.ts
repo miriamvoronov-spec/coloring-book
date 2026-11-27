@@ -3,7 +3,7 @@
  * direction, check what each page is, then build it page by page.
  */
 import { addCategory, go } from '../app/app';
-import { store } from '../app/store';
+import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
 import { guessKind, importPdfBook, KIND_HE, openPdf, renderPage, type PdfDoc, type PdfKind } from '../app/pdfimport';
 import { appBar } from '../ui/appbar';
@@ -34,7 +34,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
   const dir = h('select', { class: 'field', id: 'pdf-dir' },
     h('option', { value: 'rtl' }, 'מימין לשמאל (עברית)'),
     h('option', { value: 'ltr' }, 'משמאל לימין (אנגלית, צרפתית)')) as HTMLSelectElement;
-  if (/[a-z]/i.test(file.name) && !/[א-ת]/.test(file.name)) dir.value = 'ltr';
+  dir.value = prefs.get('defaultDirection', 'rtl');
   catSel.addEventListener('change', () => { newCat.hidden = catSel.value !== '__new'; if (!newCat.hidden) newCat.focus(); });
 
   const status = h('p', { class: 'wiz__status', role: 'status' }, `פותחת את הקובץ (${sizeHe(file.size)})…`);

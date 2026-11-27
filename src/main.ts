@@ -3,6 +3,7 @@ import { initApp, go, whenSeeded } from './app/app';
 import { splashScreen } from './screens/splash';
 import { applySettings } from './app/settings';
 import { mountIdeaFab } from './ui/ideas';
+import { mountPlayer } from './ui/player';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('#app missing');
@@ -15,3 +16,4 @@ initApp(app);
 void whenSeeded();
 go(splashScreen, 'fade');
 mountIdeaFab();
+mountPlayer();

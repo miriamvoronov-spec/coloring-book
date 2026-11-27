@@ -4,6 +4,10 @@ import { greeting, greetingIcon, saveSettings, settings, THEMES, TITLE_FONTS } f
 import { h, toast } from '../ui/dom';
 import { appBar } from '../ui/appbar';
 import { categoriesScreen } from './categories';
+import { prefs } from '../app/store';
+import { CHANNELS, addOwnTracks, music, ownTracks, removeOwnTrack, setChannel, setVolume, type Channel } from '../ui/music';
+import { exportLibrary, importLibrary } from '../app/backup';
+import { saveFile } from '../app/runtime';
 
 function section(title: string, ...kids: Node[]): HTMLElement {
   return h('section', { class: 'set-card' }, h('h2', { class: 'set-card__title' }, title), ...kids);
@@ -64,19 +68,95 @@ export function settingsScreen(el: HTMLElement) {
     fonts.append(b);
   }
 
+  // ----- music -----
+  const chSel = h('select', { class: 'field', id: 'set-ch' }) as HTMLSelectElement;
+  for (const c of CHANNELS) chSel.append(h('option', { value: c.id }, `${c.icon} ${c.name}`));
+  chSel.value = music.channel;
+  const vol = h('input', { type: 'range', class: 'slider', min: 0, max: 100, value: Math.round(music.volume * 100), 'aria-label': 'ווליום המוזיקה' }) as HTMLInputElement;
+  vol.addEventListener('input', () => setVolume(Number(vol.value) / 100));
+  const ownList = h('ul', { class: 'own-list' });
+  const ownPick = h('input', { type: 'file', accept: 'audio/*', multiple: true, hidden: true }) as HTMLInputElement;
+  const renderOwn = async () => {
+    const ch = chSel.value as Channel;
+    const list = await ownTracks(ch);
+    ownList.replaceChildren(...list.map((f, i) => h('li', {}, h('span', { dir: 'auto' }, '♪ ' + (f.name || `שיר ${i + 1}`)),
+      h('button', { class: 'icon-btn icon-btn--sm', type: 'button', 'aria-label': 'הסרה', onclick: async () => { await removeOwnTrack(ch, i); void renderOwn(); } }, '×'))));
+    if (!list.length) ownList.append(h('li', { class: 'muted' }, 'אין שירים משלך בערוץ הזה, מתנגנת המוזיקה המקורית של האפליקציה.'));
+  };
+  chSel.addEventListener('change', () => { void setChannel(chSel.value as Channel); void renderOwn(); });
+  ownPick.addEventListener('change', async () => { const fs = [...(ownPick.files ?? [])]; ownPick.value = ''; if (fs.length) { await addOwnTracks(chSel.value as Channel, fs); toast('השירים נוספו לערוץ'); void renderOwn(); } });
+  void renderOwn();
+
+  // ----- toolbar and books -----
+  const radios = (name: string, opts: [string, string][], value: string, set: (v: string) => void) => {
+    const box = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': name });
+    for (const [v, label] of opts) {
+      const b = h('button', { class: 'seg__btn' + (v === value ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(v === value) }, label);
+      b.addEventListener('click', () => { box.querySelectorAll('.seg__btn').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); }); b.classList.add('is-on'); b.setAttribute('aria-checked', 'true'); set(v); });
+      box.append(b);
+    }
+    return box;
+  };
+  const side = radios('מיקום סרגל הכלים', [['right', 'ימין'], ['left', 'שמאל'], ['top', 'למעלה'], ['bottom', 'למטה']], prefs.get('toolbarSide', 'right'), (v) => prefs.set('toolbarSide', v));
+  const dir = radios('כיוון דפדוף', [['rtl', 'מימין לשמאל (עברית)'], ['ltr', 'משמאל לימין (אנגלית)']], prefs.get('defaultDirection', 'rtl'), (v) => prefs.set('defaultDirection', v));
+
+  // ----- creating pages -----
+  const prov = prefs.get('imgProvider', 'claude');
+  const keyField = h('input', { class: 'field', type: 'password', id: 'set-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
+  const keyRow = h('div', { class: 'idea__row', hidden: prov === 'claude' }, h('label', { for: 'set-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), keyField);
+  const loadKey = (p: string) => { keyField.value = prefs.get('imgKey.' + p, ''); keyRow.hidden = p === 'claude'; };
+  let curProv = prov;
+  const provider = radios('שירות היצירה', [['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']], prov, (v) => { curProv = v; prefs.set('imgProvider', v); loadKey(v); });
+  keyField.addEventListener('input', () => prefs.set('imgKey.' + curProv, keyField.value.trim()));
+  loadKey(prov);
+
+  // ----- backup -----
+  const restorePick = h('input', { type: 'file', accept: '.zip,application/zip', hidden: true }) as HTMLInputElement;
+  const backupStatus = h('p', { class: 'set-label', role: 'status' });
+  const backupBtn = h('button', { class: 'btn', type: 'button', onclick: async () => {
+    try { const b = await exportLibrary((m) => { backupStatus.textContent = m; }); backupStatus.textContent = await saveFile(`miriam-library-${new Date().toISOString().slice(0, 10)}.zip`, b); }
+    catch (e) { console.error(e); backupStatus.textContent = 'הגיבוי נכשל. אולי הספרייה גדולה מדי לגיבוי אחד.'; }
+  } }, '💾 גיבוי כל הספרייה');
+  restorePick.addEventListener('change', async () => {
+    const f = restorePick.files?.[0]; restorePick.value = ''; if (!f) return;
+    try { const n = await importLibrary(f, (m) => { backupStatus.textContent = m; }); backupStatus.textContent = `שוחזרו ${n} חוברות`; }
+    catch (e) { backupStatus.textContent = e instanceof Error ? e.message : 'השחזור נכשל'; }
+  });
+
+  // ----- credits -----
+  const credits = h('ul', { class: 'credits' },
+    h('li', {}, 'הגופן Waltograph מאת mickeyavenue.com, לשימוש אישי ולא מסחרי (CC BY-NC-SA 1.0)'),
+    h('li', {}, 'גופני Google Fonts: Heebo, Suez One, Secular One, Bellefair, Amatic SC, Karantina, Fredoka (SIL Open Font License)'),
+    h('li', {}, 'מוזיקה: 30 יצירות מקוריות שהאפליקציה מלחינה בזמן אמת, בלי תמלוגים. שירים שהוספת בעצמך נשארים רק במכשיר שלך'),
+    h('li', {}, 'pdf.js מאת Mozilla (Apache 2.0), jsPDF (MIT), fflate (MIT)'),
+    h('li', {}, 'לוגו, כריכות, ציורי הדמו ואייקונים: נוצרו במיוחד לאפליקציה הזאת'));
+
   el.append(h('main', { class: 'settings' },
     appBar({ title: 'הגדרות', back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, settings: false }),
     h('div', { class: 'settings__body' },
       hello,
-      section('איך לקרוא לך?', h('label', { for: 'set-name', class: 'set-label' }, 'השם יופיע בברכה לפי השעה: בוקר, צהריים, ערב ולילה'), name),
+      section('איך לקרוא לך?', h('label', { for: 'set-name', class: 'set-label' }, 'השם יופיע בברכה לפי השעה: בוקר, צהריים, ערב ולילה'), name,
+        toggle('להציג ברכה לפי השעה', prefs.get('showGreeting', true), (v) => { prefs.set('showGreeting', v); hello.hidden = !v; }),
+        toggle('להציג משפט חמוד שמתחלף כל יום', prefs.get('showLine', true), (v) => prefs.set('showLine', v))),
       section('עיצוב האפליקציה', themes, custom),
       section('גופן הכותרות', fonts),
+      section('🎵 מוזיקה',
+        h('label', { for: 'set-ch', class: 'set-label' }, 'ערוץ'), chSel,
+        h('label', { class: 'set-label' }, 'ווליום'), vol,
+        h('p', { class: 'set-label' }, 'הנגן הקטן בפינה: ניגון, השתקה, הבא וּווליום. המוזיקה מתחילה רק אחרי נגיעה ראשונה, וזוכרת את הבחירה האחרונה.'),
+        h('h3', { class: 'idea__h' }, 'שירים משלך לערוץ הזה'), ownList,
+        h('button', { class: 'btn', type: 'button', onclick: () => ownPick.click() }, '＋ הוספת שירים מהמכשיר'), ownPick),
       section('קסם וצלילים',
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
-      section('אודות',
-        h('p', { class: 'set-about' }, 'Miriam Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.'),
-        h('p', { class: 'set-about muted' }, 'הגופן Waltograph של mickeyavenue.com, לשימוש אישי בלבד (CC BY-NC-SA).')),
+      section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
+      section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
+      section('✨ יצירת דפים', h('p', { class: 'set-label' }, 'מי מצייר את הדפים ב"רעיון לצביעה"'), provider, keyRow),
+      section('💾 גיבוי ושחזור', h('p', { class: 'set-label' }, 'כל החוברות והצביעה שלך בקובץ אחד, להעברה לטאבלט אחר או לשמירה.'),
+        h('div', { class: 'form__actions' }, backupBtn, h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => restorePick.click() }, '📂 שחזור מגיבוי')), restorePick, backupStatus),
+      section('📲 התקנה במסך הבית', h('p', { class: 'set-about' }, 'בטאבלט: Chrome ← ⋮ ← "הוסף למסך הבית". כאן ב-claude.ai אפשר גם להצמיד את הדף, והוא נפתח בקישור בלי התקנה.')),
+      section('🌟 קרדיטים', credits),
+      section('אודות', h('p', { class: 'set-about' }, 'Miriam Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.')),
     )));
   const onLeave = () => toast('ההגדרות נשמרו');
   return () => { if (name.value.trim() !== s.name) onLeave(); };

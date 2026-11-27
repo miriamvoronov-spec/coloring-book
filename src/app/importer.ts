@@ -4,7 +4,7 @@
  * Nothing is uploaded anywhere: pages are stored only in this browser.
  */
 import { unzipSync, strFromU8 } from 'fflate';
-import { store, uid } from './store';
+import { prefs, store, uid } from './store';
 import type { BookMeta, Category, Label, LegendEntry, PageKind, PageRec } from './types';
 
 /** Long side of a stored coloring page. Big enough for zoom, small enough for a phone's memory. */
@@ -172,7 +172,7 @@ async function fromEntries(entries: Entry[], jsonByName: Map<string, unknown>, m
   for (const p of pages) await store.putPage(p);
   const book: BookMeta = {
     id: bookId, categoryId: cat.id, title: manifest?.title || fallbackTitle,
-    coverColor: manifest?.coverColor || '#7a3f22', direction: manifest?.direction || 'rtl',
+    coverColor: manifest?.coverColor || '#7a3f22', direction: manifest?.direction || prefs.get<'rtl' | 'ltr'>('defaultDirection', 'rtl'),
     madeWithClaude: cat.role === 'claude', pageIds: pages.map((p) => p.id), createdAt: Date.now(),
   };
   await store.putBook(book);

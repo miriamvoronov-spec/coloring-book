@@ -25,14 +25,10 @@ let lib: Promise<PdfJs> | null = null;
 function loadPdfJs(): Promise<PdfJs> {
   lib ??= (async () => {
     const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.js')) as unknown as PdfJs;
-    try {
-      const code = (await import('pdfjs-dist/legacy/build/pdf.worker.min.js?raw')).default;
-      pdfjs.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
-    } catch {
-      // no background worker allowed here: run pdf.js on the page itself
-      const w = await import('pdfjs-dist/legacy/build/pdf.worker.js');
-      (globalThis as unknown as { pdfjsWorker: unknown }).pdfjsWorker = w;
-    }
+    // run pdf.js on the page itself: background workers can be blocked inside the claude.ai viewer,
+    // and a blocked worker would leave the import waiting forever
+    const w = await import('pdfjs-dist/legacy/build/pdf.worker.js');
+    (globalThis as unknown as { pdfjsWorker: unknown }).pdfjsWorker = w;
     return pdfjs;
   })();
   lib.catch(() => { lib = null; });

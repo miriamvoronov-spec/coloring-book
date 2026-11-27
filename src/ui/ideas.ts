@@ -7,7 +7,7 @@ import { go } from '../app/app';
 import { store } from '../app/store';
 import type { BookMeta, PageRec } from '../app/types';
 import { creatorError, history, LEVEL_HE, makePage, savePages, themeTitles, type Level } from '../app/creator';
-import { surprise } from '../app/ideas';
+import { surprise, surpriseTheme } from '../app/ideas';
 import { h, sheet, toast } from './dom';
 import { sparkle } from './sparkles';
 
@@ -76,7 +76,7 @@ export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void 
   };
   tabPage.addEventListener('click', () => setMode('page'));
   tabTheme.addEventListener('click', () => setMode('theme'));
-  surpriseBtn.addEventListener('click', () => { text.value = surprise(); text.focus(); });
+  surpriseBtn.addEventListener('click', () => { text.value = mode === 'theme' ? surpriseTheme() : surprise(); text.focus(); });
 
   const renderHist = () => {
     const list = history.all();
@@ -221,5 +221,11 @@ export function mountIdeaFab(): void {
     try { localStorage.setItem('mcb.fabPos', JSON.stringify(pos)); } catch { /* private mode */ }
   });
   // while colouring, shrink to the icon so it never covers the page
-  new MutationObserver(() => fab.classList.toggle('fab--mini', !!document.querySelector('.reader'))).observe(document.getElementById('app')!, { childList: true });
+  const sync = () => {
+    const last = document.getElementById('app')!.lastElementChild;
+    fab.classList.toggle('fab--mini', !!last?.querySelector('.reader'));
+    fab.hidden = !!last?.querySelector('.splash');
+  };
+  new MutationObserver(sync).observe(document.getElementById('app')!, { childList: true });
+  sync();
 }

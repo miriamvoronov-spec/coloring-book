@@ -213,11 +213,21 @@ export interface MakeOpts { level: Level; colors: number; signal?: AbortSignal; 
 
 /** One finished page record (not yet saved). */
 export async function makePage(bookId: string, idea: string, title: string, o: MakeOpts): Promise<PageRec> {
-  o.progress?.('קלוד מצייר…');
-  const raw = await drawSvg(idea, o.level, o.colors, (n) => o.progress?.(`קלוד מצייר… (${Math.round(n / 100)})`), o.signal);
-  o.progress?.('מסדרת קווים, אזורים ומספרים…');
-  const { svg, palette } = sanitize(raw);
-  const fill = await svgCanvas(svg);
+  const provider = prefs.get<Provider>('imgProvider', 'claude');
+  let fill: HTMLCanvasElement, palette: string[];
+  if (provider !== 'claude' && prefs.get('imgKey.' + provider, '')) {
+    o.progress?.(provider === 'openai' ? 'OpenAI מצייר…' : 'Gemini מצייר…');
+    fill = await rasterFromApi(provider, idea, o.level, o.colors, o.signal);
+    o.progress?.('מסדרת קווים, אזורים ומספרים…');
+    palette = quantize(fill, o.colors);
+  } else {
+    o.progress?.('קלוד מצייר…');
+    const raw = await drawSvg(idea, o.level, o.colors, (n) => o.progress?.(`קלוד מצייר… (${Math.round(n / 100)})`), o.signal);
+    o.progress?.('מסדרת קווים, אזורים ומספרים…');
+    const clean = sanitize(raw);
+    palette = clean.palette;
+    fill = await svgCanvas(clean.svg);
+  }
   const { art, labels, legend, solution } = await pageFromPicture(fill, palette, o.colors);
   if (labels.length < 4) throw new Error('הציור יצא פשוט מדי. ננסה שוב?');
   return {
@@ -246,4 +256,79 @@ export async function savePages(target: { bookId: string } | { title: string; co
   };
   await store.putBook(book);
   return book;
+}
+
+// ---------------- optional image APIs (her own key, kept only on this device) ----------------
+export type Provider = 'claude' | 'openai' | 'gemini';
+
+function imagePrompt(idea: string, level: Level, colors: number): string {
+  return `An original color-by-number illustration for a coloring book: ${idea}. Whimsical fairy-tale storybook style. ` +
+    `Flat solid colour areas only, exactly ${colors} distinct colours, no outlines, no gradients, no shading, no texture, no text. ` +
+    `${level === 1 ? 'Few large simple shapes.' : level === 2 ? 'A moderate number of medium shapes.' : 'Many small detailed shapes.'} Portrait page, full composition.`;
+}
+
+async function rasterFromApi(provider: 'openai' | 'gemini', idea: string, level: Level, colors: number, signal?: AbortSignal): Promise<HTMLCanvasElement> {
+  const key = prefs.get('imgKey.' + provider, '');
+  let b64 = '';
+  try {
+    if (provider === 'openai') {
+      const r = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt: imagePrompt(idea, level, colors), size: '1024x1536', n: 1 }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw apiError(r.status, j?.error?.code || j?.error?.message);
+      b64 = j.data?.[0]?.b64_json ?? '';
+    } else {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(key)}`, {
+        method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: imagePrompt(idea, level, colors) }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw apiError(r.status, j?.error?.status);
+      b64 = j.candidates?.[0]?.content?.parts?.find((p: { inlineData?: { data: string } }) => p.inlineData)?.inlineData?.data ?? '';
+      if (!b64 && j.candidates?.[0]?.finishReason) throw apiError(400, 'content_policy');
+    }
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e;
+    if ((e as { he?: boolean }).he) throw e;
+    throw new Error('אין גישה לשירות התמונות מכאן. אפשר לחזור ליצירה עם קלוד בהגדרות.');
+  }
+  if (!b64) throw new Error('השירות לא החזיר תמונה. ננסה שוב?');
+  const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+  x.filter = 'blur(2px)';
+  x.drawImage(img, (W - img.naturalWidth * sc) / 2, (H - img.naturalHeight * sc) / 2, img.naturalWidth * sc, img.naturalHeight * sc);
+  return c;
+}
+
+function apiError(status: number, code?: string): Error {
+  const c = String(code ?? '').toLowerCase();
+  const msg = status === 401 || status === 403 ? 'המפתח לא התקבל. בדקי אותו בהגדרות.'
+    : status === 429 ? 'נגמרה המכסה או שיש עומס. ננסה שוב מאוחר יותר.'
+    : c.includes('policy') || c.includes('safety') || c.includes('moderation') ? 'השירות סירב לצייר את הרעיון הזה. ננסה רעיון אחר?'
+    : 'שירות התמונות החזיר שגיאה. ננסה שוב?';
+  return Object.assign(new Error(msg), { he: true });
+}
+
+/** k-means on a small copy: the N main colours of a raster picture. */
+function quantize(c: HTMLCanvasElement, k: number): string[] {
+  const t = document.createElement('canvas'); t.width = 160; t.height = 224;
+  const x = t.getContext('2d', { willReadFrequently: true })!; x.drawImage(c, 0, 0, 160, 224);
+  const d = x.getImageData(0, 0, 160, 224).data;
+  const px: number[][] = []; for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
+  let cents = Array.from({ length: k }, (_, i) => px[Math.floor((i + 0.5) * px.length / k)].slice());
+  for (let it = 0; it < 12; it++) {
+    const sum = cents.map(() => [0, 0, 0, 0]);
+    for (const p of px) {
+      let b = 0, bd = 1e9;
+      for (let j = 0; j < k; j++) { const q = cents[j]; const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2; if (dd < bd) { bd = dd; b = j; } }
+      sum[b][0] += p[0]; sum[b][1] += p[1]; sum[b][2] += p[2]; sum[b][3]++;
+    }
+    cents = sum.map((s, j) => (s[3] ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : cents[j]));
+  }
+  return cents.map((q) => '#' + q.map((v) => Math.round(v).toString(16).padStart(2, '0')).join(''));
 }

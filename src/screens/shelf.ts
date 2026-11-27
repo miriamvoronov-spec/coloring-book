@@ -16,8 +16,8 @@ const SWATCHES = ['#1f2c5c', '#7a1f2b', '#1f5a45', '#4a2058', '#1d4f5a', '#5a321
 
 export function shelfScreen(el: HTMLElement, cat: Category) {
   const shelves = h('div', { class: 'shelves' });
-  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf,.colorbook,.zip,image/*,.json', multiple: true, hidden: true });
-  const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 הוספת חוברת');
+  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf', hidden: true });
+  const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 הוספת חוברת PDF');
   importBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
     const files = [...(fileInput.files ?? [])];

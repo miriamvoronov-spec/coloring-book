@@ -57,7 +57,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'חזרה למדף', html: icons.back });
-  const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'למסך הפתיחה', title: 'למסך הפתיחה', html: icons.home });
+  const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'לספרייה', title: 'לספרייה', html: icons.home });
   const host = h('div', { class: 'book__page' });
   const frame = h('div', { class: 'book' + (rtl ? ' book--rtl' : '') }, h('div', { class: 'book__edges', 'aria-hidden': 'true' }), host, h('div', { class: 'book__gutter', 'aria-hidden': 'true' }));
   frame.style.setProperty('--cover', book.coverColor);
@@ -393,7 +393,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   // ----- wiring -----
-  homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { splashScreen } = await import('./splash'); go(splashScreen, 'back'); });
+  homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { categoriesScreen } = await import('./categories'); go(categoriesScreen, 'back'); });
   back.addEventListener('click', async () => { await surface?.destroy(); surface = null; go((r) => shelfScreen(r, cat), 'back'); });
   prevBtn.addEventListener('click', () => void flip(-1));
   nextBtn.addEventListener('click', () => void flip(1));
@@ -448,16 +448,25 @@ async function congratsArt(W: number, H: number): Promise<Blob> {
   x.lineWidth = 10; x.strokeRect(48, 48, W - 96, H - 96);
   x.lineWidth = 5; x.strokeRect(72, 72, W - 144, H - 144);
   // balloon letters: a very thick outline, hollowed out with white
+  // balloon letters, one at a time from the right, each with its own black outline so they stay apart
   const bubble = (text: string, cx: number, cy: number, size: number) => {
-    x.font = `${size}px ${family}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.direction = 'rtl';
-    const fat = size * 0.24;
-    x.lineWidth = fat + 18; x.strokeStyle = '#141414'; x.strokeText(text, cx, cy);
-    x.lineWidth = fat; x.strokeStyle = '#fff'; x.strokeText(text, cx, cy);
-    x.fillStyle = '#fff'; x.fillText(text, cx, cy);
+    x.font = `${size}px ${family}`; x.textAlign = 'left'; x.textBaseline = 'middle'; x.direction = 'ltr';
+    const fat = size * 0.18, gap = size * 0.13;
+    const chars = [...text];
+    const widths = chars.map((ch) => x.measureText(ch).width);
+    const total = widths.reduce((a, w) => a + w, 0) + gap * (chars.length - 1);
+    let right = cx + total / 2;
+    chars.forEach((ch, i) => {
+      const left = right - widths[i];
+      x.lineWidth = fat + 16; x.strokeStyle = '#141414'; x.strokeText(ch, left, cy);
+      x.lineWidth = fat; x.strokeStyle = '#fff'; x.strokeText(ch, left, cy);
+      x.fillStyle = '#fff'; x.fillText(ch, left, cy);
+      right = left - gap;
+    });
     x.strokeStyle = '#141414';
   };
   bubble('כל', W * 0.5, H * 0.28, 360);
-  bubble('הכבוד!', W * 0.5, H * 0.46, 360);
+  bubble('הכבוד!', W * 0.5, H * 0.46, 300);
   // balloons with strings
   const balloon = (bx: number, by: number, r: number, tilt: number) => {
     x.save(); x.translate(bx, by); x.rotate(tilt);
