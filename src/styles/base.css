@@ -682,3 +682,8 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .pgrid__word { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.4rem; }
 .pgrid__label { font-size: .85rem; opacity: .85; }
 @media (max-width: 520px) { .pgrid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+
+/* ----- install on the home screen ----- */
+.install { display: flex; flex-direction: column; gap: 12px; }
+.install__mine h3 { margin: 0 0 6px; font-size: 1.05rem; color: #f3d98a; }
+.install__steps { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }

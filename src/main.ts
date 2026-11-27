@@ -1,5 +1,6 @@
 import { mountJobsPill } from './ui/jobs';
 import './styles/base.css';
+import './ui/install';
 import { initApp, go, whenSeeded } from './app/app';
 import { splashScreen } from './screens/splash';
 import { applySettings } from './app/settings';

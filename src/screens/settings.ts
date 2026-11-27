@@ -145,7 +145,8 @@ export function settingsScreen(el: HTMLElement) {
       section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
       section('💾 גיבוי ושחזור', h('p', { class: 'set-label' }, 'כל החוברות והצביעה שלך בקובץ אחד, להעברה לטאבלט אחר או לשמירה.'),
         h('div', { class: 'form__actions' }, backupBtn, h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => restorePick.click() }, '📂 שחזור מגיבוי')), restorePick, backupStatus),
-      section('📲 התקנה במסך הבית', h('p', { class: 'set-about' }, 'בטאבלט: Chrome ← ⋮ ← "הוסף למסך הבית". כאן ב-claude.ai אפשר גם להצמיד את הדף, והוא נפתח בקישור בלי התקנה.')),
+      section('📲 התקנה במסך הבית', h('p', { class: 'set-label' }, 'אייקון במסך הבית שפותח את האפליקציה בלחיצה אחת.'),
+        h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => (await import('../ui/install')).installApp() }, '📲 להתקנה')),
       section('🌟 קרדיטים', credits),
       section('אודות', h('p', { class: 'set-about' }, 'Miriam Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.')),
     )));
