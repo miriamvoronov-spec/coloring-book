@@ -305,16 +305,22 @@ body[data-tb="top"] .reader--color .reader__main { padding-top: 78px; }
 body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 
 .book {
-  position: relative; border-radius: 4px 8px 8px 4px;
+  --rl: 4px; --rr: 16px;
+  position: relative; border-radius: var(--rl) var(--rr) var(--rr) var(--rl);
   background: radial-gradient(140% 100% at 50% 50%, transparent 60%, rgba(20,8,0,.5)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .2  0 0 0 0 .12  0 0 0 0 .05  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"), linear-gradient(160deg, color-mix(in srgb, var(--cover) 40%, #a8703a), color-mix(in srgb, var(--cover) 40%, #6e4020) 45%, color-mix(in srgb, var(--cover) 35%, #2a1406));
   background-size: auto, 160px 160px, auto;
   padding: 12px 18px 12px 8px;
   box-shadow: 0 34px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4), inset 0 0 0 2px rgba(231,184,80,.35), 0 0 90px rgba(231,184,80,.14);
 }
-.book--rtl { padding: 12px 8px 12px 18px; }
+.book--rtl { padding: 12px 8px 12px 18px; --rl: 16px; --rr: 4px; }
+/* rounded corners: her choice in Settings (default: the open side of the book) */
+:root[data-corners="left"] .book { --rl: 16px; --rr: 4px; }
+:root[data-corners="right"] .book { --rl: 4px; --rr: 16px; }
+:root[data-corners="all"] .book { --rl: 16px; --rr: 16px; }
+:root[data-corners="none"] .book { --rl: 2px; --rr: 2px; }
 .book__edges { position: absolute; top: 9px; bottom: 9px; right: 5px; width: 13px; border-radius: 0 3px 3px 0; background: repeating-linear-gradient(90deg, #efe0bd 0 1px, #d8c29a 1px 2px, #f6ead0 2px 3px); box-shadow: 2px 0 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(120,80,20,.4); }
 .book--rtl .book__edges { right: auto; left: 5px; border-radius: 3px 0 0 3px; }
-.book__page { position: relative; width: 100%; height: 100%; background: var(--paper); border-radius: 2px 4px 4px 2px; overflow: hidden; perspective: 2200px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.book__page { position: relative; width: 100%; height: 100%; background: var(--paper); border-radius: calc(var(--rl) * .6) calc(var(--rr) * .6) calc(var(--rr) * .6) calc(var(--rl) * .6); overflow: hidden; perspective: 2200px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
 .book__page > .spread { position: absolute; inset: 0; border-radius: 0; box-shadow: none; }
 .book__page > .cover, .book__page > .congrats { position: absolute; inset: 0; border-radius: 0; font-size: clamp(12px, 2.4vmin, 22px); }
 .book__gutter { position: absolute; top: 10px; bottom: 10px; left: 6px; width: 34px; pointer-events: none; background: linear-gradient(90deg, rgba(60,35,15,.38), rgba(60,35,15,.12) 40%, transparent); z-index: 3; }

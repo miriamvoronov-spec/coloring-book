@@ -2,7 +2,7 @@
 import { prefs } from '../app/store';
 import { h } from '../ui/dom';
 import { icons } from '../ui/icons';
-import type { ToolName } from './brushes';
+import { ALL_TOOLS, DEFAULT_TOOLS, type ToolName } from './brushes';
 import type { ToolState } from './engine';
 
 export type Side = 'right' | 'left' | 'top' | 'bottom';
@@ -22,8 +22,13 @@ export interface ToolbarHooks {
   onEyedropper?: () => void;
 }
 
-const TOOL_LABEL: Record<ToolName, string> = { pencil: 'עיפרון צבעוני', marker: 'טוש', eraser: 'מחק', picker: 'דוגם צבע' };
-const TOOL_ICON: Record<ToolName, string> = { pencil: icons.pencil, marker: icons.marker, eraser: icons.eraser, picker: icons.picker };
+const TOOL_LABEL = Object.fromEntries(ALL_TOOLS.map((t) => [t.id, t.name])) as Record<ToolName, string>;
+const TOOL_ICON: Record<ToolName, string> = { pencil: icons.pencil, marker: icons.marker, eraser: icons.eraser, picker: icons.picker, crayon: icons.pencil, brush: icons.brush, pen: icons.marker, highlighter: icons.marker };
+/** The tools she chose in Settings. */
+export const enabledTools = (): ToolName[] => {
+  const v = prefs.get<ToolName[]>('tools.enabled', DEFAULT_TOOLS).filter((t) => ALL_TOOLS.some((x) => x.id === t));
+  return v.length ? ALL_TOOLS.map((x) => x.id).filter((t) => v.includes(t)) : DEFAULT_TOOLS;
+};
 
 export class Toolbar {
   el: HTMLElement;
@@ -111,7 +116,7 @@ export class Toolbar {
 
   private toolMenu(): HTMLElement {
     const box = h('div', { class: 'menu', role: 'menu' });
-    for (const t of ['marker', 'eraser', 'picker'] as ToolName[]) {
+    for (const t of enabledTools()) {
       const b = h('button', { class: 'menu__item' + (this.k.state.tool === t ? ' is-on' : ''), type: 'button', role: 'menuitemradio', 'aria-checked': String(this.k.state.tool === t), html: TOOL_ICON[t] },
         h('span', {}, TOOL_LABEL[t]));
       b.addEventListener('click', () => {

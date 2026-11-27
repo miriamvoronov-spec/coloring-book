@@ -5,14 +5,13 @@ import { go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { BookMeta, Category, PageRec } from '../app/types';
 import { PageEngine, type ToolState } from '../coloring/engine';
-import { Toolbar } from '../coloring/toolbar';
+import { Toolbar, enabledTools } from '../coloring/toolbar';
 import { colorPicker } from '../coloring/picker';
 import { h, sheet, toast, reducedMotion } from '../ui/dom';
 import { coverFace, coverUrl, shade } from '../ui/cover';
 import { icons } from '../ui/icons';
 import { confetti, sparkle } from '../ui/sparkles';
 import { paperFlip } from '../ui/sound';
-import { settings } from '../app/settings';
 import { logoMark } from '../ui/logo';
 import { closeBookAnimation } from './book3d';
 import { endBookTheme, playBookTheme } from '../ui/music';
@@ -45,7 +44,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   })();
 
   const state: ToolState = {
-    tool: ((t) => (t === 'pencil' ? 'marker' : t))(prefs.get<ToolState['tool']>('tool.v2', 'marker')), color: prefs.get('color', '#ef476f'),
+    tool: ((t) => (enabledTools().includes(t) && t !== 'picker' ? t : enabledTools().find((x) => x !== 'eraser' && x !== 'picker') ?? 'marker'))(prefs.get<ToolState['tool']>('tool.v2', 'marker')), color: prefs.get('color', '#ef476f'),
     size: prefs.get('size', 14), eraserSize: prefs.get('eraserSize', 30), opacity: prefs.get('opacity', 1), inside: (prefs.get('inside.v2', false) as boolean),
   };
   if (state.tool === 'picker') state.tool = 'marker';
@@ -97,12 +96,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       return coverFace(book, await coverUrl(book, which), which);
     }
     if (leaf.key === 'plate') {
-      const owner = settings().name.trim();
-      const el = h('div', { class: 'tpage--plate' },
-        h('div', { class: 'bookplate' },
-          h('div', { class: 'bookplate__star', 'aria-hidden': 'true' }, '✦'),
-          h('div', { class: 'bookplate__k' }, 'ספר זה שייך ל'),
-          h('div', { class: 'bookplate__name', dir: 'auto' }, owner || '✨')));
+      // the inside of the cover: a plain starry endpaper
+      const el = h('div', { class: 'tpage--plate' });
       el.style.setProperty('--cover', book.coverColor);
       return el;
     }
@@ -193,14 +188,9 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const p = backId ? await store.page(backId) : undefined;
     return { el: face, aspect: p ? p.width / p.height : 1 / 1.4, snapshot: () => face.cloneNode(true), destroy: async () => face.remove() };
   };
-  /** The first spread after the cover: "this book belongs to…" inside the cover, and the title page beside it. */
+  /** The first spread after the cover: the endpaper inside the cover, and the title page beside it. */
   const titleSurface = async (): Promise<Surface> => {
-    const owner = settings().name.trim();
-    const inside = h('div', { class: 'spread__in' },
-      h('div', { class: 'bookplate' },
-        h('div', { class: 'bookplate__star', 'aria-hidden': 'true' }, '✦'),
-        h('div', { class: 'bookplate__k' }, 'ספר זה שייך ל'),
-        h('div', { class: 'bookplate__name', dir: 'auto' }, owner || '✨')));
+    const inside = h('div', { class: 'spread__in' });
     inside.style.setProperty('--endpaper', shade(book.coverColor, -0.06));
     const titlePage = h('div', { class: 'spread__page' },
       h('div', { class: 'book3d__frame', 'aria-hidden': 'true' }),
@@ -387,7 +377,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   function renderLegend() {
     legend.replaceChildren();
     const page = surface?.page;
-    legend.hidden = !page || !page.legend.length;
+    // no colours under the page: they show only when she opens "🎨 צבעי הדף"
+    legend.hidden = true;
     if (!page) return;
     for (const e of page.legend) legend.append(chip(e.color, e.label));
     markLegend();
@@ -666,7 +657,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   setColoring(false);
   void ready.then(async () => {
-    // browse it like a real book: two pages at a time; it opens on "this book belongs to…" and the title page
+    // browse it like a real book: two pages at a time; it opens on the endpaper and the title page
     const leaves: Leaf[] = [];
     entries.forEach((e, i) => {
       if (e.kind === 'title') { leaves.push({ key: 'plate', entry: i, tappable: false }, { key: 'titlepage', entry: i, tappable: false }); return; }

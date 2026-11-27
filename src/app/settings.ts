@@ -17,6 +17,26 @@ export const TITLE_FONTS: { id: string; name: string; css: string }[] = [
   { id: 'secular', name: 'סקולר', css: "'Secular One', system-ui, sans-serif" },
   { id: 'amatic', name: 'כתב יד', css: "'Amatic SC', cursive" },
   { id: 'karantina', name: 'קרנטינה', css: "'Karantina', system-ui, sans-serif" },
+  { id: 'miriam', name: 'מרים ליברה', css: "'Miriam Libre', system-ui, sans-serif" },
+  { id: 'frank', name: 'פרנק רוהל', css: "'Frank Ruhl Libre', Georgia, serif" },
+  { id: 'david', name: 'דוד', css: "'David Libre', Georgia, serif" },
+  { id: 'varela', name: 'וראלה עגול', css: "'Varela Round', system-ui, sans-serif" },
+  { id: 'bubbles', name: 'בועות', css: "'Rubik Bubbles', system-ui, sans-serif" },
+  { id: 'doodle', name: 'שרבוט', css: "'Rubik Doodle Shadow', system-ui, sans-serif" },
+  { id: 'wetpaint', name: 'צבע רטוב', css: "'Rubik Wet Paint', system-ui, sans-serif" },
+  { id: 'gems', name: 'אבני חן', css: "'Rubik Gemstones', system-ui, sans-serif" },
+  { id: 'moon', name: 'סלעי ירח', css: "'Rubik Moonrocks', system-ui, sans-serif" },
+  { id: 'puddles', name: 'שלוליות', css: "'Rubik Puddles', system-ui, sans-serif" },
+  { id: 'vinyl', name: 'ויניל', css: "'Rubik Vinyl', system-ui, sans-serif" },
+];
+
+/** Which side of the book's page has the rounded corners. */
+export const CORNER_STYLES: { id: string; name: string }[] = [
+  { id: 'auto', name: 'בצד הפתוח של החוברת' },
+  { id: 'left', name: 'בצד שמאל' },
+  { id: 'right', name: 'בצד ימין' },
+  { id: 'all', name: 'בכל הפינות' },
+  { id: 'none', name: 'בלי עיגול' },
 ];
 
 export interface Settings { name: string; theme: ThemeId; titleFont: string; sounds: boolean; sparkles: boolean; customBg: string; customAccent: string }
@@ -64,6 +84,7 @@ export function applySettings(): void {
   const f = TITLE_FONTS.find((x) => x.id === s.titleFont) ?? TITLE_FONTS[0];
   root.style.setProperty('--font-display', f.css);
   root.classList.toggle('no-sparkles', !s.sparkles);
+  root.dataset.corners = prefs.get('corners', 'auto');
 }
 
 /** Greeting by the hour of the day on this device. */

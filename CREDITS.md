@@ -17,3 +17,9 @@
 ## ספריות
 
 pdf.js (Apache 2.0), JSZip (MIT), Vite (MIT), vite-plugin-pwa (MIT).
+
+## Page-turn sounds
+
+| File | Creator | License | Link |
+|---|---|---|---|
+| bookFlip1–3 (src/ui/flipdata.ts, converted to MP3) | Kenney ("RPG Audio") | CC0 1.0 | https://kenney.nl/assets/rpg-audio |

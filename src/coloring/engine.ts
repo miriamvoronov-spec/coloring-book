@@ -515,7 +515,7 @@ export class PageEngine {
     if (this.map && this.mapActive !== this.activeIdx && this.guards().length) { this.map = null; this.maskCache.clear(); }
     this.mode = 'draw';
     this.drawPtr = e.pointerId;
-    this.stroke.style.opacity = this.strokeTool === 'eraser' ? '1' : String(t.opacity);
+    this.stroke.style.opacity = this.strokeTool === 'eraser' ? '1' : String(t.opacity * (this.strokeTool === 'highlighter' ? 0.45 : 1));
     this.clip = null;
     if (t.inside && this.strokeTool !== 'eraser' && !this.map) this.buildRegions();
     if (t.inside && this.strokeTool !== 'eraser' && this.map) {
@@ -578,7 +578,7 @@ export class PageEngine {
     const c = this.cctx;
     c.save();
     if (this.strokeTool === 'eraser') c.globalCompositeOperation = 'destination-out';
-    else c.globalAlpha = this.tools().opacity;
+    else c.globalAlpha = this.tools().opacity * (this.strokeTool === 'highlighter' ? 0.45 : 1);
     c.drawImage(this.stroke, b.x, b.y, b.w, b.h, b.x, b.y, b.w, b.h);
     c.restore();
     this.sctx.clearRect(b.x, b.y, b.w, b.h);

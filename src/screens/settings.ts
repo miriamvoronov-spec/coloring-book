@@ -1,6 +1,7 @@
 /** Settings: her name (for the greeting), the app's look, sounds and sparkles, about. */
 import { go } from '../app/app';
-import { dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
+import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
+import { ALL_TOOLS, DEFAULT_TOOLS, type ToolName } from '../coloring/brushes';
 import { LOGO_STYLES, logoMark } from '../ui/logo';
 import { FLIP_SOUNDS, paperFlip, unlockAudio } from '../ui/sound';
 import { h, toast } from '../ui/dom';
@@ -101,7 +102,7 @@ export function settingsScreen(el: HTMLElement) {
 
   // ----- logo and the daily line -----
   const logos = h('div', { class: 'logo-grid', role: 'radiogroup', 'aria-label': 'לוגו' });
-  const curLogo = prefs.get('logoStyle', 'book');
+  const curLogo = prefs.get('logoStyle', 'palettebook');
   for (const l of LOGO_STYLES) {
     const b = h('button', { class: 'logo-choice' + (l.id === curLogo ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(l.id === curLogo) },
       h('span', { class: 'logo-choice__art', html: logoMark(84, l.id) }), h('span', {}, l.name));
@@ -138,8 +139,22 @@ export function settingsScreen(el: HTMLElement) {
     h('li', {}, 'הגופן Waltograph מאת mickeyavenue.com, לשימוש אישי ולא מסחרי (CC BY-NC-SA 1.0)'),
     h('li', {}, 'גופני Google Fonts: Heebo, Suez One, Secular One, Bellefair, Amatic SC, Karantina, Fredoka (SIL Open Font License)'),
     h('li', {}, 'מוזיקה: 30 יצירות מקוריות שהאפליקציה מלחינה בזמן אמת, בלי תמלוגים. שירים שהוספת בעצמך נשארים רק במכשיר שלך'),
+    h('li', {}, 'צלילי הדפדוף: הקלטות של דפי ספר אמיתיים מאת Kenney ("RPG Audio", ‏CC0)'),
     h('li', {}, 'pdf.js מאת Mozilla (Apache 2.0), jsPDF (MIT), fflate (MIT)'),
     h('li', {}, 'לוגו, כריכות, ציורי הדמו ואייקונים: נוצרו במיוחד לאפליקציה הזאת'));
+
+  function toolChoices(): HTMLElement {
+    const box = h('div', { class: 'tool-choices' });
+    const on = new Set(prefs.get<ToolName[]>('tools.enabled', DEFAULT_TOOLS));
+    for (const t of ALL_TOOLS) {
+      box.append(toggle(`${t.name}: ${t.hint}`, on.has(t.id), (v) => {
+        if (v) on.add(t.id); else on.delete(t.id);
+        if (![...on].some((x) => x !== 'eraser' && x !== 'picker')) { on.add('marker'); toast('נשאר לפחות כלי צביעה אחד, אז הטוש נשאר'); }
+        prefs.set('tools.enabled', ALL_TOOLS.map((x) => x.id).filter((x) => on.has(x)));
+      }));
+    }
+    return box;
+  }
 
   el.append(h('main', { class: 'settings' },
     appBar({ title: 'הגדרות', back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, settings: false }),
@@ -152,6 +167,9 @@ export function settingsScreen(el: HTMLElement) {
       section('✨ לוגו', logos),
       section('💬 המשפט היומי', h('p', { class: 'set-label' }, 'איזה סוג משפטים יופיע במסך הפתיחה. המשפט מתחלף כל יום.'), lineSet, linePreview),
       section('גופן הכותרות', fonts),
+      section('📖 פינות מעוגלות בדף', h('p', { class: 'set-label' }, 'באיזה צד של הדף הפינות מעוגלות, כמו חוברת אמיתית'),
+        radios('פינות מעוגלות', CORNER_STYLES.map((x) => [x.id, x.name] as [string, string]), prefs.get('corners', 'auto'), (v) => { prefs.set('corners', v); applySettings(); })),
+      section('🖍️ כלי הצביעה בתפריט', h('p', { class: 'set-label' }, 'סמני אילו כלים יופיעו בתפריט הכלים בזמן הצביעה'), toolChoices()),
       section('🎵 מוזיקה',
         h('label', { for: 'set-ch', class: 'set-label' }, 'ערוץ'), chSel,
         h('label', { class: 'set-label' }, 'ווליום'), vol,
@@ -161,7 +179,7 @@ export function settingsScreen(el: HTMLElement) {
       section('קסם וצלילים',
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         h('p', { class: 'set-label' }, 'צליל הדפדוף (לחיצה משמיעה אותו)'),
-        radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'page'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
+        radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'real'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
       section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
