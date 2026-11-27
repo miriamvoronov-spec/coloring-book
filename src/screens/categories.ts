@@ -72,14 +72,23 @@ function editCategory(cat: Category | null, refresh: () => void) {
 
 export function categoriesScreen(el: HTMLElement) {
   const grid = h('div', { class: 'cat-grid' });
-  const pick = h('input', { type: 'file', accept: '.pdf,application/pdf,image/*', multiple: true, hidden: true }) as HTMLInputElement;
+  const pick = h('input', { type: 'file', accept: '.pdf,application/pdf,image/*,.colorbook,.zip', multiple: true, hidden: true }) as HTMLInputElement;
   pick.addEventListener('change', async () => {
     const fs = [...(pick.files ?? [])]; pick.value = '';
     if (!fs.length) return;
+    const cb = fs.find((f) => /\.(colorbook|zip)$/i.test(f.name));
+    if (cb) {
+      const cats = await store.categories();
+      const cat = cats.find((c) => c.id === 'cat-imported') ?? cats[0];
+      const { importFiles } = await import('../app/importer');
+      try { const b = await importFiles([cb], cat, () => {}); toast(`"${b.title}" נוספה למדף ${cat.name}`); dispatchEvent(new CustomEvent(BOOKS_CHANGED)); }
+      catch (e) { toast(e instanceof Error ? e.message : 'הייבוא נכשל'); }
+      return;
+    }
     const { pdfWizard } = await import('./pdfwizard');
     pdfWizard(fs);
   });
-  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF או תמונות)');
+  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF, תמונות או .colorbook)');
   const [jobs, offJobs] = jobsBox();
   const lists = h('div', { class: 'lists-row' });
   el.append(h('main', { class: 'categories' },
