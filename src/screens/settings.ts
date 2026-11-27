@@ -154,17 +154,3 @@ export function settingsScreen(el: HTMLElement) {
 }
 
 /** Settings for creating books, shown inside "החוברות האישיות שלי". */
-export function creationSettings(): HTMLElement {
-  // ----- creating pages -----
-  const prov = prefs.get('imgProvider', 'claude');
-  const keyField = h('input', { class: 'field', type: 'password', id: 'set-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
-  const keyRow = h('div', { class: 'idea__row', hidden: prov === 'claude' }, h('label', { for: 'set-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), keyField);
-  const loadKey = (p: string) => { keyField.value = prefs.get('imgKey.' + p, ''); keyRow.hidden = p === 'claude'; };
-  let curProv = prov;
-  const provider = radios('שירות היצירה', [['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']], prov, (v) => { curProv = v; prefs.set('imgProvider', v); loadKey(v); });
-  keyField.addEventListener('input', () => prefs.set('imgKey.' + curProv, keyField.value.trim()));
-  loadKey(prov);
-  return h('div', { class: 'idea' },
-    h('p', { class: 'set-label' }, 'מי מצייר את הדפים. סגנון הציור (אלגנטי, מבוגר, ילדותי, בוטני ועוד) נבחר בחלון היצירה, ועמוד "כל הכבוד" בסוף כל חוברת מתאים את עצמו לסגנון שלה.'),
-    provider, keyRow);
-}

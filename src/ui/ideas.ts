@@ -13,6 +13,22 @@ import { h, sheet, toast } from './dom';
 
 const COVERS = ['#1f2c5c', '#4a2058', '#7a1f2b', '#1f5a45', '#1d4f5a', '#8c3a55', '#5a3218', '#2e3440'];
 
+/** Who draws the pages: built-in Claude, or her own OpenAI / Gemini key (kept on this device only). */
+function whoDraws(): HTMLElement {
+  const prov = prefs.get('imgProvider', 'claude');
+  const sel = h('select', { class: 'field', id: 'idea-prov' },
+    ...([['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']] as const)
+      .map(([v, t]) => h('option', { value: v, selected: v === prov }, t))) as HTMLSelectElement;
+  const key = h('input', { class: 'field', type: 'password', id: 'idea-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
+  const keyRow = h('div', { class: 'idea__row' }, h('label', { for: 'idea-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), key);
+  const load = () => { key.value = prefs.get('imgKey.' + sel.value, ''); keyRow.hidden = sel.value === 'claude'; };
+  sel.addEventListener('change', () => { prefs.set('imgProvider', sel.value); load(); });
+  key.addEventListener('input', () => prefs.set('imgKey.' + sel.value, key.value.trim()));
+  load();
+  return h('details', { class: 'idea__more' }, h('summary', {}, '🎨 מי מצייר את הדפים'),
+    h('div', { class: 'idea__opts' }, h('label', { for: 'idea-prov' }, 'שירות הציור'), sel, keyRow));
+}
+
 export interface PanelOpts { mode: 'page' | 'theme'; preset?: string; categoryId?: string; onDone?: (b: BookMeta | null) => void }
 
 export function ideaPanel(o: PanelOpts): HTMLElement {
@@ -181,6 +197,7 @@ export function ideaPanel(o: PanelOpts): HTMLElement {
       h('label', { for: 'idea-cat', class: 'set-label' }, mode === 'page' ? 'לאיזו קטגוריה לשייך?' : 'באיזו קטגוריה לשים את החוברת?'), catSel,
       mode === 'page' ? h('label', { for: 'idea-target', class: 'set-label' }, 'לאיזו חוברת?') : null, target, newBook,
       h('label', { class: 'check' }, tune, h('span', {}, '🎵 להלחין לחוברת החדשה מנגינה משלה, שתתנגן כשהיא פתוחה'))),
+    whoDraws(),
     h('details', { class: 'idea__more' }, h('summary', {}, 'רמת קושי ומספר צבעים'),
       h('div', { class: 'idea__opts' },
         h('label', {}, 'רמת קושי'), levels,

@@ -47,8 +47,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
   el.append(h('main', { class: 'shelf-screen' },
     appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: virtual ? [] : [importBtn] }),
     cat.role === 'claude' ? h('div', { class: 'create-row' },
-      h('button', { class: 'btn btn--gold create-row__btn', type: 'button', onclick: () => openCreator({ categoryId: cat.id, onDone: () => void render() }) }, '✨ צור חוברת צביעה'),
-      h('button', { class: 'btn create-row__set', type: 'button', onclick: async () => { const { creationSettings } = await import('./settings'); sheet('⚙️ הגדרות יצירה', creationSettings()); } }, '⚙️ הגדרות יצירה')) : null,
+      h('button', { class: 'btn btn--gold create-row__btn', type: 'button', onclick: () => openCreator({ categoryId: cat.id, onDone: () => void render() }) }, '✨ צור חוברת צביעה')) : null,
     shelves, fileInput));
 
   const render = async () => {
