@@ -11,9 +11,8 @@ export function splashScreen(el: HTMLElement) {
     <main class="splash" aria-label="מסך פתיחה">
       ${logoFull(Math.min(260, Math.round(innerWidth * 0.5)))}
       <p class="splash__tag">חוברות צביעה קסומות לפי מספרים</p>
-      <p class="splash__hello"></p>
-      <p class="splash__line"></p>
       <button class="btn btn--gold splash__go" type="button">פתחי את הספרייה</button>
+      <div class="splash__greet"><p class="splash__hello"></p><p class="splash__line"></p></div>
     </main>`;
   el.querySelector('.splash__hello')!.textContent = `${greetingIcon()} ${greeting()}`;
   el.querySelector('.splash__line')!.textContent = dailyLine();

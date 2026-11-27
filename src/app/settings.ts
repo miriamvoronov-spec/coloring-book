@@ -1,7 +1,8 @@
 /** Personal settings: her name, the look of the app, sounds. Kept in prefs on this device. */
 import { prefs } from './store';
+import { hexToRgb, rgbToHex } from './raster';
 
-export type ThemeId = 'walnut' | 'night' | 'rose' | 'forest' | 'cream';
+export type ThemeId = 'walnut' | 'night' | 'rose' | 'forest' | 'cream' | 'custom';
 export const THEMES: { id: ThemeId; name: string; swatch: [string, string] }[] = [
   { id: 'walnut', name: 'ספריית עץ ונרות', swatch: ['#4a2c19', '#e7b850'] },
   { id: 'night', name: 'לילה של כוכבים', swatch: ['#1b2350', '#cfd8ff'] },
@@ -18,7 +19,7 @@ export const TITLE_FONTS: { id: string; name: string; css: string }[] = [
   { id: 'karantina', name: 'קרנטינה', css: "'Karantina', system-ui, sans-serif" },
 ];
 
-export interface Settings { name: string; theme: ThemeId; titleFont: string; sounds: boolean; sparkles: boolean }
+export interface Settings { name: string; theme: ThemeId; titleFont: string; sounds: boolean; sparkles: boolean; customBg: string; customAccent: string }
 
 export function settings(): Settings {
   return {
@@ -27,6 +28,8 @@ export function settings(): Settings {
     titleFont: prefs.get('titleFont', 'suez'),
     sounds: prefs.get('sound', true),
     sparkles: prefs.get('sparkles', true),
+    customBg: prefs.get('customBg', '#3b2a5c'),
+    customAccent: prefs.get('customAccent', '#f2c4a0'),
   };
 }
 
@@ -39,6 +42,25 @@ export function applySettings(): void {
   const s = settings();
   const root = document.documentElement;
   root.dataset.theme = s.theme;
+  const vars = ['--wood-0', '--wood-1', '--wood-2', '--wood-3', '--gold', '--gold-hi', '--gold-deep', '--paper', '--paper-2', '--muted'];
+  for (const v of vars) root.style.removeProperty(v);
+  root.style.removeProperty('color-scheme');
+  if (s.theme === 'custom') {
+    const light = lum(s.customBg) > 0.55;
+    const set = (k: string, v: string) => root.style.setProperty(k, v);
+    set('--wood-0', mix(s.customBg, light ? '#ffffff' : '#000000', light ? 0.1 : 0.62));
+    set('--wood-1', mix(s.customBg, light ? '#ffffff' : '#000000', light ? 0.45 : 0.4));
+    set('--wood-2', s.customBg);
+    set('--wood-3', mix(s.customBg, light ? '#000000' : '#ffffff', 0.25));
+    set('--gold', s.customAccent);
+    set('--gold-hi', mix(s.customAccent, '#ffffff', 0.6));
+    set('--gold-deep', mix(s.customAccent, '#000000', 0.3));
+    if (light) {
+      set('--paper', '#2c1d10'); set('--paper-2', '#4a3826'); set('--muted', mix(s.customBg, '#000000', 0.55));
+      set('--gold-hi', mix(s.customAccent, '#000000', 0.15)); set('--gold', mix(s.customAccent, '#000000', 0.25));
+      set('color-scheme', 'light');
+    } else set('--muted', mix(s.customBg, '#ffffff', 0.6));
+  }
   const f = TITLE_FONTS.find((x) => x.id === s.titleFont) ?? TITLE_FONTS[0];
   root.style.setProperty('--font-display', f.css);
   root.classList.toggle('no-sparkles', !s.sparkles);
@@ -85,3 +107,9 @@ export function dailyLine(d = new Date()): string {
   const day = Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
   return LINES[day % LINES.length];
 }
+
+function mix(a: string, b: string, t: number): string {
+  const x = hexToRgb(a), y = hexToRgb(b);
+  return rgbToHex(Math.round(x[0] + (y[0] - x[0]) * t), Math.round(x[1] + (y[1] - x[1]) * t), Math.round(x[2] + (y[2] - x[2]) * t));
+}
+function lum(hex: string): number { const [r, g, b] = hexToRgb(hex); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }

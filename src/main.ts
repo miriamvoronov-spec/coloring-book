@@ -2,6 +2,7 @@ import './styles/base.css';
 import { initApp, go, whenSeeded } from './app/app';
 import { splashScreen } from './screens/splash';
 import { applySettings } from './app/settings';
+import { mountIdeaFab } from './ui/ideas';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('#app missing');
@@ -13,3 +14,4 @@ applySettings();
 initApp(app);
 void whenSeeded();
 go(splashScreen, 'fade');
+mountIdeaFab();

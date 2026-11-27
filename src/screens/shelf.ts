@@ -5,6 +5,7 @@ import type { BookMeta, Category } from '../app/types';
 import { importFiles } from '../app/importer';
 import { shareBook } from '../app/share';
 import { appBar } from '../ui/appbar';
+import { ideaPanel } from '../ui/ideas';
 import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { coverFace, coverUrl, spineFace } from '../ui/cover';
 import { categoriesScreen } from './categories';
@@ -38,6 +39,9 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
 
   el.append(h('main', { class: 'shelf-screen' },
     appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: [importBtn] }),
+    cat.role === 'claude' ? h('details', { class: 'set-card idea-card', open: true },
+      h('summary', { class: 'idea-card__sum' }, '✨ מה היית רוצה שאצור?'),
+      ideaPanel({ inline: true, onDone: () => void render() })) : null,
     shelves, fileInput));
 
   const render = async () => {
@@ -67,8 +71,9 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     book.addEventListener('click', async () => {
       const rect = book.querySelector('.shelf-book__body')!.getBoundingClientRect();
       book.classList.add('is-pulled');
-      await openBookAnimation(b, url, rect);
-      go((r) => readerScreen(r, b, cat), 'none');
+      let shown = false;
+      await openBookAnimation(b, url, rect, () => { shown = true; go((r) => readerScreen(r, b, cat), 'none'); });
+      if (!shown) go((r) => readerScreen(r, b, cat), 'none');
     });
     onLongPress(book, () => editBook(b, render));
     return book;

@@ -36,6 +36,21 @@ export function settingsScreen(el: HTMLElement) {
     themes.append(b);
   }
 
+  // her own theme, from the colour wheel
+  const bg = h('input', { type: 'color', class: 'idea__wheel', value: s.customBg, 'aria-label': 'צבע הרקע מגלגל הצבעים' }) as HTMLInputElement;
+  const ac = h('input', { type: 'color', class: 'idea__wheel', value: s.customAccent, 'aria-label': 'צבע ההדגשה מגלגל הצבעים' }) as HTMLInputElement;
+  const useCustom = () => {
+    themes.querySelectorAll('.theme-choice').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); });
+    custom.classList.add('is-on');
+    saveSettings({ theme: 'custom', customBg: bg.value, customAccent: ac.value });
+  };
+  bg.addEventListener('input', useCustom); ac.addEventListener('input', useCustom);
+  const custom = h('div', { class: 'theme-custom' + (s.theme === 'custom' ? ' is-on' : '') },
+    h('span', { class: 'theme-custom__title' }, '🎨 העיצוב שלי מגלגל הצבעים'),
+    h('label', { class: 'theme-custom__row' }, bg, 'רקע'),
+    h('label', { class: 'theme-custom__row' }, ac, 'הדגשה וכפתורים'));
+  themes.querySelectorAll('.theme-choice').forEach((b) => b.addEventListener('click', () => custom.classList.remove('is-on')));
+
   const fonts = h('div', { class: 'font-grid', role: 'radiogroup', 'aria-label': 'גופן הכותרות' });
   for (const f of TITLE_FONTS) {
     const b = h('button', { class: 'font-choice' + (f.id === s.titleFont ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(f.id === s.titleFont), style: `font-family: ${f.css}` },
@@ -54,7 +69,7 @@ export function settingsScreen(el: HTMLElement) {
     h('div', { class: 'settings__body' },
       hello,
       section('איך לקרוא לך?', h('label', { for: 'set-name', class: 'set-label' }, 'השם יופיע בברכה לפי השעה: בוקר, צהריים, ערב ולילה'), name),
-      section('עיצוב האפליקציה', themes),
+      section('עיצוב האפליקציה', themes, custom),
       section('גופן הכותרות', fonts),
       section('קסם וצלילים',
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),

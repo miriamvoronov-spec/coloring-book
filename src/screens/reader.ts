@@ -68,7 +68,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader' },
     h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, shareBtn, solutionBtn, modeBtn, homeBtn)),
-    main, legend);
+    main);
+  // colours are chosen from the colour button in the tool bar (legend, wheel, recent); no strip under the page
   el.append(root);
 
   // ----- layout -----
@@ -107,23 +108,9 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   /** "Well done" page in the cover colour: free colouring, no numbers. */
   const congratsSurface = async (): Promise<Surface> => {
     const W = 1600, H = 2240;
-    const text = 'כל הכבוד! ✨';
-    const letters = h('div', { class: 'congrats__text', dir: 'rtl' });
-    [...text].forEach((ch, i) => { const s = h('span', {}, ch === ' ' ? '\u00a0' : ch); s.style.animationDelay = i * 0.08 + 's'; letters.append(s); });
-    const overlay = h('div', { class: 'congrats' }, h('div', { class: 'congrats__frame' }), letters, h('p', { class: 'congrats__sub' }, 'סיימת את כל הדפים. הדף הזה שלך לצביעה חופשית'));
-    const blank = document.createElement('canvas');
-    blank.width = 16; blank.height = 22;
-    const bx = blank.getContext('2d')!; bx.fillStyle = '#fff'; bx.fillRect(0, 0, 16, 22);
-    const image = await new Promise<Blob>((r) => blank.toBlob((b) => r(b!), 'image/png'));
+    const image = await congratsArt(W, H);
     const page: PageRec = { id: 'congrats-' + book.id, bookId: book.id, kind: 'coloring', width: W, height: H, image, labels: [], legend: [], numbersInImage: false };
-    const engine = new PageEngine(page, () => state, engineEvents(), {
-      paper: book.coverColor, overlay,
-      decorate: (x, w, hh) => {
-        x.save(); x.textAlign = 'center'; x.textBaseline = 'middle';
-        x.font = `${Math.round(w * 0.12)}px "Suez One", serif`; x.fillStyle = '#f2c862';
-        x.fillText('כל הכבוד!', w / 2, hh * 0.42); x.restore();
-      },
-    });
+    const engine = new PageEngine(page, () => state, engineEvents());
     engine.drawEnabled = coloring;
     return { el: engine.el, aspect: W / H, engine, page, snapshot: () => engine.snapshot(1200), destroy: () => engine.destroy() };
   };
@@ -446,4 +433,55 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     toolbar?.destroy();
     void surface?.destroy();
   };
+}
+
+/** "כל הכבוד!" in hollow balloon letters with balloons, stars and hearts: black outlines on white, to colour freely. */
+async function congratsArt(W: number, H: number): Promise<Blob> {
+  const family = '"Secular One", "Suez One", sans-serif';
+  try { await document.fonts.load(`400 300px ${family}`, 'כל הכבוד'); } catch { /* fall back to what is there */ }
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.lineJoin = 'round'; x.lineCap = 'round'; x.strokeStyle = '#141414';
+  const outline = (draw: () => void, lw = 9) => { x.beginPath(); draw(); x.fillStyle = '#fff'; x.fill(); x.lineWidth = lw; x.stroke(); };
+  // frame
+  x.lineWidth = 10; x.strokeRect(48, 48, W - 96, H - 96);
+  x.lineWidth = 5; x.strokeRect(72, 72, W - 144, H - 144);
+  // balloon letters: a very thick outline, hollowed out with white
+  const bubble = (text: string, cx: number, cy: number, size: number) => {
+    x.font = `${size}px ${family}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.direction = 'rtl';
+    const fat = size * 0.24;
+    x.lineWidth = fat + 18; x.strokeStyle = '#141414'; x.strokeText(text, cx, cy);
+    x.lineWidth = fat; x.strokeStyle = '#fff'; x.strokeText(text, cx, cy);
+    x.fillStyle = '#fff'; x.fillText(text, cx, cy);
+    x.strokeStyle = '#141414';
+  };
+  bubble('כל', W * 0.5, H * 0.28, 360);
+  bubble('הכבוד!', W * 0.5, H * 0.46, 360);
+  // balloons with strings
+  const balloon = (bx: number, by: number, r: number, tilt: number) => {
+    x.save(); x.translate(bx, by); x.rotate(tilt);
+    outline(() => x.ellipse(0, 0, r * 0.82, r, 0, 0, Math.PI * 2));
+    outline(() => { x.moveTo(-r * 0.12, r * 0.98); x.lineTo(r * 0.12, r * 0.98); x.lineTo(0, r * 1.1); x.closePath(); }, 7);
+    x.beginPath(); x.ellipse(-r * 0.35, -r * 0.4, r * 0.12, r * 0.22, -0.5, 0, Math.PI * 2); x.lineWidth = 6; x.stroke();
+    x.beginPath(); x.moveTo(0, r * 1.1); x.bezierCurveTo(r * 0.4, r * 1.6, -r * 0.4, r * 2.1, r * 0.1, r * 2.7); x.lineWidth = 5; x.stroke();
+    x.restore();
+  };
+  balloon(W * 0.2, H * 0.67, 150, -0.15);
+  balloon(W * 0.5, H * 0.72, 175, 0.02);
+  balloon(W * 0.8, H * 0.66, 145, 0.18);
+  const star = (sx: number, sy: number, r: number) => outline(() => {
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5; const rr = i % 2 ? r * 0.45 : r; x.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); }
+    x.closePath();
+  }, 7);
+  const heart = (hx: number, hy: number, s: number) => outline(() => {
+    x.moveTo(hx, hy + s * 0.35);
+    x.bezierCurveTo(hx - s, hy - s * 0.3, hx - s * 0.45, hy - s, hx, hy - s * 0.45);
+    x.bezierCurveTo(hx + s * 0.45, hy - s, hx + s, hy - s * 0.3, hx, hy + s * 0.35);
+  }, 7);
+  star(W * 0.17, H * 0.12, 70); star(W * 0.84, H * 0.15, 85); star(W * 0.12, H * 0.42, 50); star(W * 0.9, H * 0.4, 55);
+  star(W * 0.35, H * 0.9, 60); star(W * 0.68, H * 0.92, 48);
+  heart(W * 0.5, H * 0.13, 80); heart(W * 0.12, H * 0.9, 60); heart(W * 0.88, H * 0.88, 70);
+  for (const [dx, dy, r] of [[0.3, 0.16, 18], [0.7, 0.2, 14], [0.25, 0.56, 16], [0.75, 0.56, 20], [0.07, 0.25, 12], [0.93, 0.26, 15]] as const) outline(() => x.arc(W * dx, H * dy, r, 0, Math.PI * 2), 6);
+  return new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
 }
