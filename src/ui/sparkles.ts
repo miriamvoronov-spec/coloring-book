@@ -65,7 +65,10 @@ function loop() {
 
 function start() { if (!running) { running = true; requestAnimationFrame(loop); } }
 
+const off = () => document.documentElement.classList.contains('no-sparkles');
+
 export function sparkle(x: number, y: number, count = 40, spread = 6): void {
+  if (off()) return;
   if (reducedMotion()) count = Math.min(count, 8);
   ensure();
   for (let i = 0; i < count; i++) {
@@ -82,6 +85,7 @@ export function sparkleTrail(points: [number, number][], perPoint = 3): void {
 }
 
 export function confetti(count = 140): void {
+  if (off()) count = Math.round(count / 4);
   if (reducedMotion()) return;
   ensure();
   for (let i = 0; i < count; i++) {

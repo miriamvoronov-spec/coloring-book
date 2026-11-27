@@ -3,6 +3,8 @@ import { go } from '../app/app';
 import { store } from '../app/store';
 import type { BookMeta, Category } from '../app/types';
 import { importFiles } from '../app/importer';
+import { shareBook } from '../app/share';
+import { appBar } from '../ui/appbar';
 import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { coverFace, coverUrl, spineFace } from '../ui/cover';
 import { categoriesScreen } from './categories';
@@ -13,13 +15,15 @@ const SWATCHES = ['#1f2c5c', '#7a1f2b', '#1f5a45', '#4a2058', '#1d4f5a', '#5a321
 
 export function shelfScreen(el: HTMLElement, cat: Category) {
   const shelves = h('div', { class: 'shelves' });
-  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.colorbook,.zip,image/*,.json', multiple: true, hidden: true });
-  const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 ייבוא חוברת');
+  const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf,.colorbook,.zip,image/*,.json', multiple: true, hidden: true });
+  const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 הוספת חוברת');
   importBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
     const files = [...(fileInput.files ?? [])];
     fileInput.value = '';
     if (!files.length) return;
+    const pdf = files.find((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+    if (pdf) { const { pdfWizard } = await import('./pdfwizard'); pdfWizard(pdf, cat); return; }
     const status = h('div', { class: 'busy', role: 'status' }, h('div', { class: 'busy__spin' }), h('p', {}, 'מייבאת את החוברת…'));
     document.body.append(status);
     try {
@@ -33,10 +37,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
   });
 
   el.append(h('main', { class: 'shelf-screen' },
-    h('header', { class: 'top' },
-      h('button', { class: 'icon-btn', 'aria-label': 'חזרה לקטגוריות', onclick: () => go(categoriesScreen, 'back') }, '→'),
-      h('h1', { class: 'top__title', dir: 'auto' }, `${cat.icon} ${cat.name}`),
-      h('div', { class: 'top__end' }, importBtn)),
+    appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: [importBtn] }),
     shelves, fileInput));
 
   const render = async () => {
@@ -96,7 +97,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
       for (const c of cats) catSel.append(h('option', { value: c.id, selected: c.id === b.categoryId }, `${c.icon} ${c.name}`));
     });
     const save = h('button', { class: 'btn btn--gold', type: 'button' }, 'שמירה');
-    const share = h('button', { class: 'btn btn--ghost', type: 'button', disabled: true, title: 'יגיע בשלב השיתוף' }, 'שיתוף (בקרוב)');
+    const share = h('button', { class: 'btn', type: 'button' }, 'שיתוף');
     const del = h('button', { class: 'btn btn--danger', type: 'button' }, 'מחיקה');
     const body = h('div', { class: 'form' },
       h('label', { for: 'book-name' }, 'שם החוברת'), name,
@@ -109,6 +110,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
       await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId });
       close(); await refresh();
     });
+    share.addEventListener('click', () => { close(); void shareBook(b); });
     let armed = false;
     del.addEventListener('click', async () => {
       if (!armed) { armed = true; del.textContent = 'ללחוץ שוב כדי למחוק לתמיד'; return; }

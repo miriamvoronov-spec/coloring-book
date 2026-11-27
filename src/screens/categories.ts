@@ -4,6 +4,8 @@ import { store } from '../app/store';
 import type { Category } from '../app/types';
 import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { logoMark } from '../ui/logo';
+import { appBar } from '../ui/appbar';
+import { dailyLine, greeting, greetingIcon, settings } from '../app/settings';
 import { shelfScreen } from './shelf';
 
 const ICONS = ['✨', '🏰', '🧚', '🦄', '🌸', '🐉', '🌙', '⭐', '🎨', '🍄', '🐚', '🦋', '🌈', '👑', '🪄', '📚'];
@@ -52,10 +54,19 @@ function editCategory(cat: Category | null, refresh: () => void) {
 
 export function categoriesScreen(el: HTMLElement) {
   const grid = h('div', { class: 'cat-grid' });
+  const pick = h('input', { type: 'file', accept: '.pdf,application/pdf', hidden: true }) as HTMLInputElement;
+  pick.addEventListener('change', async () => {
+    const f = pick.files?.[0]; pick.value = '';
+    if (!f) return;
+    const { pdfWizard } = await import('./pdfwizard');
+    pdfWizard(f);
+  });
+  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click() }, '📥 הוספת חוברת PDF');
   el.append(h('main', { class: 'categories' },
-    h('header', { class: 'top' },
-      h('div', { class: 'top__brand', html: logoMark(56) }),
-      h('h1', { class: 'top__title' }, 'הספרייה שלי')),
+    appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf] }), pick,
+    h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
+      settings().name ? '' : h('button', { class: 'greet__ask', type: 'button', onclick: async () => { const { settingsScreen } = await import('./settings'); go(settingsScreen, 'forward'); } }, 'איך קוראים לך?')),
+    h('p', { class: 'greet__line' }, dailyLine()),
     grid,
     h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
 

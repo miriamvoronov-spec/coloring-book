@@ -11,6 +11,7 @@ import { icons } from '../ui/icons';
 import { confetti, sparkle } from '../ui/sparkles';
 import { paperFlip } from '../ui/sound';
 import { closeBookAnimation } from './book3d';
+import { shareBook, sharePage } from '../app/share';
 import { shelfScreen } from './shelf';
 
 type Entry = { kind: 'cover' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
@@ -53,8 +54,10 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const title = h('h1', { class: 'reader__title', dir: 'auto' }, book.title);
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
+  const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'חזרה למדף', html: icons.back });
+  const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'למסך הפתיחה', title: 'למסך הפתיחה', html: icons.home });
   const host = h('div', { class: 'book__page' });
   const frame = h('div', { class: 'book' + (rtl ? ' book--rtl' : '') }, h('div', { class: 'book__edges', 'aria-hidden': 'true' }), host, h('div', { class: 'book__gutter', 'aria-hidden': 'true' }));
   frame.style.setProperty('--cover', book.coverColor);
@@ -64,7 +67,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader' },
-    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, solutionBtn, modeBtn)),
+    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, shareBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   el.append(root);
 
@@ -209,7 +212,6 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   function afterShow() {
-    prefs.set('lastPage.' + book.id, index);
     setTimeout(() => surface?.engine?.prepare(), 120);
     if (entries[index].kind === 'congrats') {
       confetti(160);
@@ -404,11 +406,17 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   // ----- wiring -----
+  homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { splashScreen } = await import('./splash'); go(splashScreen, 'back'); });
   back.addEventListener('click', async () => { await surface?.destroy(); surface = null; go((r) => shelfScreen(r, cat), 'back'); });
   prevBtn.addEventListener('click', () => void flip(-1));
   nextBtn.addEventListener('click', () => void flip(1));
   modeBtn.addEventListener('click', () => setColoring(!coloring));
   solutionBtn.addEventListener('click', () => void openSolution());
+  shareBtn.addEventListener('click', () => {
+    const s = surface;
+    if (s?.engine && s.page && entries[index].kind === 'page') void sharePage(s.page, () => s.engine!.snapshot(3508));
+    else void shareBook(book);
+  });
   const onKey = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement)?.matches?.('input, textarea')) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) surface?.engine?.redo(); else surface?.engine?.undo(); toolbar?.update(); return; }
@@ -424,8 +432,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   setColoring(false);
   void ready.then(() => {
-    const saved = prefs.get<number>('lastPage.' + book.id, -1);
-    const start = saved > 0 && saved < entries.length ? saved : Math.min(1, entries.length - 1);
+    // a book always opens on its first page, like a real one
+    const start = Math.min(1, entries.length - 1);
     void show(start, 0);
   });
 

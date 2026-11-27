@@ -37,5 +37,7 @@ def write_page(out_dir: Path, stem: str, result, src_dpi: float, legend_h: int =
                   "gaps_bridged": result.bridges},
         "size": {"width": int(result.lines.shape[1]), "height": int(result.lines.shape[0])},
     }
+    # bare line art (no labels, no legend) for the app, which draws its own numbers
+    Image.fromarray(np.where(result.lines, 0, 255).astype(np.uint8)).convert("1").save(out_dir / f"{stem}_lines.png", optimize=True)
     (out_dir / f"{stem}.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"placed": placed, "png": full, "data": data}

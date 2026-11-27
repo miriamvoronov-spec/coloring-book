@@ -1,3 +1,5 @@
+@font-face { font-family: 'Waltograph'; src: url('../assets/fonts/waltograph42.woff2') format('woff2'); font-display: swap; }
+
 /* Layout: one screen at a time, full height; a candle-lit walnut library with paper and gold.
    This app deliberately keeps a single warm, dark look in both system themes. */
 :root {
@@ -16,7 +18,7 @@
   --danger: #d9534f;
   --font-display: 'Suez One', 'Frank Ruhl Libre', Georgia, serif;
   --font-body: 'Heebo', 'Noto Sans Hebrew', system-ui, sans-serif;
-  --font-script: 'Princess Sofia', 'Brush Script MT', cursive;
+  --font-script: 'Waltograph', 'Brush Script MT', cursive;
   --font-num: 'Fredoka', 'Varela Round', system-ui, sans-serif;
   --touch: 48px;
   --radius: 14px;
@@ -446,3 +448,74 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 }
 
 .reader--closing .reader__main, .reader--closing .legend { opacity: 0; transition: opacity .3s; }
+
+.pick-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; max-height: 40vh; overflow: auto; }
+.pick-pages__item { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 10px; background: rgba(0,0,0,.22); color: var(--paper) !important; }
+.pick-pages__item input { width: 22px; height: 22px; accent-color: var(--gold); }
+
+/* ---------- themes (settings) ---------- */
+:root[data-theme="night"] { --wood-0: #070a1e; --wood-1: #111842; --wood-2: #24306b; --wood-3: #3d4c96; --gold: #e9d48a; --gold-hi: #fffbe0; --gold-deep: #a98d3e; --muted: #b9c0e6; }
+:root[data-theme="rose"] { --wood-0: #1f0713; --wood-1: #3b1028; --wood-2: #64203f; --wood-3: #93415f; --gold: #f2c4a0; --gold-hi: #fff0e4; --gold-deep: #c58a68; --muted: #e8bccb; }
+:root[data-theme="forest"] { --wood-0: #06130d; --wood-1: #0f2a1d; --wood-2: #1e4430; --wood-3: #3a6a4b; --gold: #e9d27a; --gold-hi: #fff7c9; --gold-deep: #a99140; --muted: #bcd3b8; }
+:root[data-theme="cream"] { --wood-0: #e9dcc2; --wood-1: #f3e8d2; --wood-2: #fbf4e4; --wood-3: #d9c39b; --paper: #3a2614; --paper-2: #5b4127; --gold: #9c6b2f; --gold-hi: #c99448; --gold-deep: #6e4818; --muted: #7c6448; color-scheme: light; }
+:root[data-theme="cream"] .btn--gold, :root[data-theme="cream"] .pill--gold { color: #fffaf0; }
+
+/* ---------- app bar ---------- */
+.appbar { display: flex; align-items: center; gap: 10px; padding-block: max(12px, env(safe-area-inset-top, 0px)) 6px; min-height: 64px; }
+.appbar__title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.35rem, 3.2vw, 2rem); color: var(--gold); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appbar__brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.appbar__logo .logo-mark { width: 48px; height: 48px; display: block; }
+.appbar__end { display: flex; gap: 8px; align-items: center; }
+.icon-btn svg { width: 24px; height: 24px; }
+.greet { margin: 2px 0 14px; font-family: var(--font-display); font-size: clamp(1.15rem, 2.6vw, 1.6rem); color: var(--gold-hi); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; animation: rise .9s both; }
+.greet__line { margin: -10px 0 14px; color: var(--muted); font-size: 1.02rem; font-style: italic; }
+.splash__line { margin: 0; color: var(--muted); font-size: 1.05rem; animation: rise 1.4s .7s both; }
+.greet { margin-bottom: 14px; }
+.greet__ask { border: 1px dashed var(--gold); background: transparent; color: var(--gold); border-radius: 999px; padding: 6px 14px; font-family: var(--font-body); font-size: .95rem; min-height: 40px; }
+.splash__hello { margin: 0; font-family: var(--font-display); font-size: clamp(1.2rem, 3vw, 1.7rem); color: var(--gold-hi); animation: rise 1.4s .6s both; }
+
+/* ---------- settings ---------- */
+.settings { display: flex; flex-direction: column; height: 100%; }
+.settings__body { flex: 1; overflow-y: auto; display: grid; gap: 14px; padding-bottom: 32px; max-width: 760px; width: 100%; margin-inline: auto; align-content: start; }
+.set-hello { margin: 4px 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3.4vw, 2rem); color: var(--gold-hi); text-align: center; }
+.set-card { background: rgba(255,241,184,.06); border: 1px solid rgba(231,184,80,.28); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
+.set-card__title { margin: 0; font-family: var(--font-display); font-weight: 400; color: var(--gold); font-size: 1.25rem; }
+.set-label { color: var(--muted); font-size: .95rem; }
+.set-about { margin: 0; line-height: 1.6; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.theme-choice, .font-choice { display: grid; gap: 8px; justify-items: center; padding: 10px; min-height: 48px; border-radius: 14px; border: 2px solid rgba(231,184,80,.2); background: rgba(0,0,0,.15); }
+.theme-choice.is-on, .font-choice.is-on { border-color: var(--gold); background: rgba(231,184,80,.16); box-shadow: 0 0 0 3px rgba(231,184,80,.25); }
+.theme-choice__swatch { width: 100%; height: 56px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); }
+.font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.font-choice { font-size: 1.5rem; color: var(--gold-hi); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; cursor: pointer; position: relative; }
+.switch__input { position: absolute; opacity: 0; inset-inline-end: 0; width: 56px; height: 32px; margin: 0; cursor: pointer; }
+.switch__track { width: 56px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.18); position: relative; flex: none; transition: background .2s; pointer-events: none; }
+.switch__track::after { content: ''; position: absolute; top: 4px; inset-inline-start: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--paper); transition: transform .2s; }
+.switch__input:checked + .switch__track { background: var(--gold); }
+.switch__input:checked + .switch__track::after { transform: translateX(-24px); }
+.switch__input:focus-visible + .switch__track { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- PDF import ---------- */
+.wiz { display: flex; flex-direction: column; height: 100%; }
+.wiz__body { flex: 1; overflow-y: auto; display: grid; gap: 14px; align-content: start; padding-bottom: 16px; }
+.wiz__form { display: grid; gap: 8px; max-width: 640px; }
+.wiz__status { margin: 0; color: var(--gold-hi); }
+.wiz__counts { margin: 0; font-size: .95rem; }
+.wiz__bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.wiz__bar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold-hi)); transition: width .3s; }
+.wiz__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.wiz__grid--busy { opacity: .55; pointer-events: none; }
+.wiz__tile { position: relative; display: grid; gap: 4px; padding: 6px; border-radius: 12px; border: 2px solid transparent; background: rgba(0,0,0,.2); min-height: 48px; }
+.wiz__thumb { display: grid; place-items: center; aspect-ratio: 3 / 4; background: rgba(255,255,255,.06); border-radius: 6px; overflow: hidden; }
+.wiz__img { width: 100%; height: 100%; object-fit: contain; }
+.wiz__num { position: absolute; top: 10px; inset-inline-start: 10px; background: rgba(0,0,0,.65); color: #fff; border-radius: 99px; padding: 0 7px; font-size: .8rem; }
+.wiz__kind { font-size: .85rem; text-align: center; border-radius: 99px; padding: 2px 4px; background: rgba(255,255,255,.1); }
+.wiz__tile[data-kind="coloring"] { border-color: var(--gold); }
+.wiz__tile[data-kind="coloring"] .wiz__kind { background: var(--gold); color: var(--ink); }
+.wiz__tile[data-kind="cover"] .wiz__kind, .wiz__tile[data-kind="back"] .wiz__kind { background: #7fb0e0; color: #0b1b2c; }
+.wiz__tile[data-kind="solution"] .wiz__kind { background: #e59bb4; color: #2a0c18; }
+.wiz__tile[data-kind="skip"] { opacity: .45; }
+.wiz__foot { padding-block: 10px max(12px, env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; }
+.wiz__go { min-width: 240px; }
+@media (max-width: 600px) { .appbar__add { padding-inline: 10px; font-size: .9rem; } }
