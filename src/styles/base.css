@@ -687,3 +687,6 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .install { display: flex; flex-direction: column; gap: 12px; }
 .install__mine h3 { margin: 0 0 6px; font-size: 1.05rem; color: #f3d98a; }
 .install__steps { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
+
+.install-bar { position: fixed; z-index: 60; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; background: rgba(43,26,16,.92); border: 1px solid rgba(233,196,106,.5); box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: fadeUp .5s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }

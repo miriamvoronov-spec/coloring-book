@@ -8,8 +8,20 @@ import { h, sheet } from './dom';
 
 interface InstallEvent extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> }
 let deferred: InstallEvent | null = null;
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e as InstallEvent; });
-window.addEventListener('appinstalled', () => { deferred = null; prefs.set('installAsked.v1', true); });
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e as InstallEvent; showInstallBar(); });
+window.addEventListener('appinstalled', () => { deferred = null; bar?.remove(); bar = null; });
+
+/** The browser says this site can be installed: offer it straight away, one tap. */
+let bar: HTMLElement | null = null;
+function showInstallBar() {
+  let off = false; try { off = !!sessionStorage.getItem('installBar.off'); } catch { /* ignore */ }
+  if (bar || off) return;
+  const close = () => { bar?.remove(); bar = null; try { sessionStorage.setItem('installBar.off', '1'); } catch { /* ignore */ } };
+  bar = h('div', { class: 'install-bar', role: 'dialog', 'aria-label': 'התקנת האפליקציה' },
+    h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => { const d = deferred; close(); if (d) { deferred = null; await d.prompt(); } } }, '📲 להתקין את האפליקציה'),
+    h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'לא עכשיו', onclick: close }, '✕'));
+  document.body.append(bar);
+}
 
 const installed = () => matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
 
