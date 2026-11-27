@@ -8,7 +8,7 @@ import { PageEngine, type ToolState } from '../coloring/engine';
 import { Toolbar, enabledTools } from '../coloring/toolbar';
 import { colorPicker } from '../coloring/picker';
 import { h, sheet, toast, reducedMotion } from '../ui/dom';
-import { coverFace, coverUrl, shade } from '../ui/cover';
+import { coverFace, coverTone, coverUrl, shade } from '../ui/cover';
 import { icons } from '../ui/icons';
 import { confetti, sparkle } from '../ui/sparkles';
 import { paperFlip } from '../ui/sound';
@@ -75,6 +75,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const host = h('div', { class: 'book__page' });
   const frame = h('div', { class: 'book' + (rtl ? ' book--rtl' : '') }, h('div', { class: 'book__edges', 'aria-hidden': 'true' }), host, h('div', { class: 'book__gutter', 'aria-hidden': 'true' }));
   frame.style.setProperty('--cover', book.coverColor);
+  /** The binding's colour: taken from the cover picture when there is one. */
+  let bindColor = book.coverColor;
   const prevBtn = h('button', { class: 'arrow arrow--prev', type: 'button', 'aria-label': 'העמוד הקודם', html: rtl ? icons.next : icons.prev });
   const nextBtn = h('button', { class: 'arrow arrow--next', type: 'button', 'aria-label': 'העמוד הבא', html: rtl ? icons.prev : icons.next });
   if (rtl) { prevBtn.classList.add('arrow--right'); nextBtn.classList.add('arrow--left'); } else { prevBtn.classList.add('arrow--left'); nextBtn.classList.add('arrow--right'); }
@@ -102,7 +104,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     if (leaf.key === 'plate') {
       // the inside of the cover: a plain starry endpaper
       const el = h('div', { class: 'tpage--plate' });
-      el.style.setProperty('--cover', book.coverColor);
+      el.style.setProperty('--cover', bindColor);
       return el;
     }
     if (leaf.key === 'titlepage') {
@@ -195,7 +197,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   /** The first spread after the cover: the endpaper inside the cover, and the title page beside it. */
   const titleSurface = async (): Promise<Surface> => {
     const inside = h('div', { class: 'spread__in' });
-    inside.style.setProperty('--endpaper', shade(book.coverColor, -0.06));
+    inside.style.setProperty('--endpaper', shade(bindColor, -0.06));
     const titlePage = h('div', { class: 'spread__page' },
       h('div', { class: 'book3d__frame', 'aria-hidden': 'true' }),
       h('div', { class: 'book3d__titlepage' },
@@ -621,9 +623,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     solutionBtn.querySelector('span')!.textContent = 'הצג פתרון';
   }
   async function openRef() {
-    const sol = await solutionSrc();
-    if (!sol) { toast('בדף הזה אין פתרון ואין מספרים ומקרא ליצור ממנו פתרון'); return; }
-    openReference(sol.src, sol.auto ? 'פתרון אוטומטי' : 'הפתרון מהחוברת');
+    const sol = await solutionSrc().catch(() => null);
+    openReference(sol?.src ?? '', sol ? (sol.auto ? 'פתרון אוטומטי' : 'הפתרון מהחוברת') : 'חלונית רפרנס');
   }
 
   let pal: ReturnType<typeof openPalette> | null = null;
@@ -749,12 +750,18 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     });
     const firstPage = entries.find((e) => e.kind === 'page') as { id: string } | undefined;
     const fp = firstPage ? await store.page(firstPage.id) : undefined;
-    const aspect = fp ? fp.width / fp.height : 1 / 1.4;
-    spread = new SpreadView(leaves, rtl, aspect, book.coverColor, {
+    // the book's shape follows its front cover when it has one, so pages and cover are the same size
+    const cu = await coverUrl(book);
+    const cov = cu ? await new Promise<number | null>((res) => { const im = new Image(); im.onload = () => res(im.naturalWidth / im.naturalHeight); im.onerror = () => res(null); im.src = cu; }) : null;
+    const aspect = cov ?? (fp ? fp.width / fp.height : 1 / 1.4);
+    bindColor = (await coverTone(cu)) ?? book.coverColor;
+    frame.style.setProperty('--cover', bindColor);
+    spread = new SpreadView(leaves, rtl, aspect, bindColor, {
       render: renderLeaf,
       onOpen: (leaf) => void openForColoring(leaf.entry),
       onChange: () => updateChrome(),
     });
+    if (cov) spread.el.classList.add('spreadview--scan');
     main.prepend(spread.el);
     layout();
     await spread.show(1);

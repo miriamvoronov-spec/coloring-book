@@ -1,6 +1,6 @@
 /** Original logo: an open coloring book with a pencil drawing a trail of stardust. */
 import { prefs } from '../app/store';
-import { logoCastle, logoCrown, logoHeart, logoMedallion, logoMoon, logoPalette, logoPaletteBook } from './logos';
+import { logoBrush, logoButterfly, logoPencilCup, logoRainbow, logoCastle, logoCrown, logoHeart, logoMedallion, logoMoon, logoPalette, logoPaletteBook } from './logos';
 
 export const LOGO_STYLES: { id: string; name: string }[] = [
   { id: 'palettebook', name: 'פלטה וחוברת צבועה' },
@@ -11,6 +11,10 @@ export const LOGO_STYLES: { id: string; name: string }[] = [
   { id: 'castle', name: 'טירה וקשת' },
   { id: 'heart', name: 'לב של צבעים' },
   { id: 'crown', name: 'כתר צבעים' },
+  { id: 'rainbow', name: 'קשת מתוך חוברת' },
+  { id: 'brush', name: 'מכחול ומערבולת צבע' },
+  { id: 'cup', name: 'כוס עפרונות' },
+  { id: 'butterfly', name: 'פרפר לפי מספרים' },
 ];
 const LABEL = 'לוגו Miriam&#39;s Coloring Books';
 
@@ -22,6 +26,10 @@ export function logoMark(size = 220, style = prefs.get('logoStyle', 'palettebook
   if (style === 'castle') return logoCastle(size, LABEL);
   if (style === 'heart') return logoHeart(size, LABEL);
   if (style === 'crown') return logoCrown(size, LABEL);
+  if (style === 'rainbow') return logoRainbow(size, LABEL);
+  if (style === 'brush') return logoBrush(size, LABEL);
+  if (style === 'cup') return logoPencilCup(size, LABEL);
+  if (style === 'butterfly') return logoButterfly(size, LABEL);
   return bookLogo(size);
 }
 

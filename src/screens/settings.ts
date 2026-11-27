@@ -1,6 +1,6 @@
 /** Settings: her name (for the greeting), the app's look, sounds and sparkles, about. */
 import { go } from '../app/app';
-import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
+import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS, SCRIPT_FONTS, BOOK_FONTS } from '../app/settings';
 import { ALL_TOOLS, DEFAULT_TOOLS, type ToolName } from '../coloring/brushes';
 import { LOGO_STYLES, logoMark } from '../ui/logo';
 import { chime, FLIP_SOUNDS, paperFlip, SPARKLE_SOUNDS, unlockAudio } from '../ui/sound';
@@ -80,6 +80,58 @@ export function settingsScreen(el: HTMLElement) {
     });
     fonts.append(b);
   }
+
+  // lettering of the app's name and of book names
+  const fontPicker = (key: string, list: { id: string; name: string; css: string }[], sample: string) => {
+    const box = h('div', { class: 'font-grid', role: 'radiogroup' });
+    const cur = prefs.get(key, 'walt');
+    for (const f of list) {
+      const b = h('button', { class: 'font-choice' + (f.id === cur ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(f.id === cur), style: `font-family: ${f.css}, var(--font-display)`, title: f.name }, sample);
+      b.addEventListener('click', () => {
+        box.querySelectorAll('.font-choice').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); });
+        b.classList.add('is-on'); b.setAttribute('aria-checked', 'true');
+        prefs.set(key, f.id); applySettings();
+      });
+      box.append(b);
+    }
+    return box;
+  };
+  const appFonts = fontPicker('appFont', SCRIPT_FONTS, "Miriam's");
+  const bookFonts = fontPicker('bookFont', BOOK_FONTS, 'Les Classiques');
+
+  // a background of several colours blended together
+  const blendBox = h('div', { class: 'blend' });
+  const blendPrev = h('div', { class: 'blend__preview', 'aria-hidden': 'true' });
+  const renderBlend = () => {
+    const cols = prefs.get<string[]>('bgBlend', []);
+    const list = cols.length ? cols : [];
+    blendBox.replaceChildren(...list.map((c, i) => {
+      const inp = h('input', { type: 'color', class: 'idea__wheel', value: c, 'aria-label': `צבע ${i + 1}` }) as HTMLInputElement;
+      inp.addEventListener('input', () => { const a = prefs.get<string[]>('bgBlend', []); a[i] = inp.value; prefs.set('bgBlend', a); applySettings(); paintPrev(); });
+      const del = h('button', { class: 'icon-btn icon-btn--sm', type: 'button', 'aria-label': `להסיר את צבע ${i + 1}` }, '×');
+      del.addEventListener('click', () => { const a = prefs.get<string[]>('bgBlend', []); a.splice(i, 1); prefs.set('bgBlend', a.length >= 2 ? a : []); applySettings(); renderBlend(); });
+      return h('span', { class: 'blend__chip' }, inp, del);
+    }));
+    paintPrev();
+  };
+  const paintPrev = () => {
+    const a = prefs.get<string[]>('bgBlend', []);
+    blendPrev.style.background = a.length >= 2 ? `linear-gradient(${prefs.get('bgAngle', 160)}deg, ${a.join(', ')})` : 'radial-gradient(120% 90% at 50% 20%, var(--wood-2), var(--wood-1) 55%, var(--wood-0))';
+  };
+  const addCol = h('button', { class: 'btn', type: 'button' }, '＋ להוסיף צבע לרקע');
+  addCol.addEventListener('click', () => {
+    const a = prefs.get<string[]>('bgBlend', []);
+    const next = a.length ? a : [getComputedStyle(document.documentElement).getPropertyValue('--wood-2').trim() || '#3b2a1e'];
+    next.push(['#7b4bb5', '#e46aa0', '#3a7bd5', '#f2b84b', '#2e8b6a'][next.length % 5]);
+    prefs.set('bgBlend', next); applySettings(); renderBlend();
+  });
+  const angle = radios('כיוון השילוב', [['160', 'אלכסון'], ['180', 'מלמעלה למטה'], ['90', 'מצד לצד'], ['135', 'אלכסון הפוך']], String(prefs.get('bgAngle', 160)), (v) => { prefs.set('bgAngle', Number(v)); applySettings(); paintPrev(); });
+  const resetLook = h('button', { class: 'btn btn--ghost', type: 'button' }, '↺ חזרה לברירת המחדל');
+  resetLook.addEventListener('click', () => {
+    for (const k of ['bgBlend', 'bgAngle', 'theme', 'customBg', 'customAccent', 'titleFont', 'appFont', 'bookFont', 'logoStyle', 'corners']) prefs.del(k);
+    applySettings(); toast('העיצוב חזר לברירת המחדל'); go(settingsScreen, 'none');
+  });
+  renderBlend();
 
   // ----- music -----
   const chSel = h('select', { class: 'field', id: 'set-ch' }) as HTMLSelectElement;
@@ -164,6 +216,10 @@ export function settingsScreen(el: HTMLElement) {
         toggle('להציג ברכה לפי השעה', prefs.get('showGreeting', true), (v) => { prefs.set('showGreeting', v); hello.hidden = !v; }),
         toggle('להציג משפט חמוד שמתחלף כל יום', prefs.get('showLine', true), (v) => prefs.set('showLine', v))),
       section('עיצוב האפליקציה', themes, custom),
+      section('🌈 רקע משילוב צבעים', h('p', { class: 'set-label' }, 'שני צבעים או יותר שמתמזגים זה בזה לרקע של כל האפליקציה'), blendPrev, blendBox,
+        h('div', { class: 'form__actions' }, addCol), angle),
+      section('✒️ הכתב של שם האפליקציה', appFonts),
+      section('📚 הכתב של שמות החוברות', h('p', { class: 'set-label' }, 'על הכריכה, השדרה ובראש הדף'), bookFonts),
       section('✨ לוגו', logos),
       section('💬 המשפט היומי', h('p', { class: 'set-label' }, 'איזה סוג משפטים יופיע במסך הפתיחה. המשפט מתחלף כל יום.'), lineSet, linePreview),
       section('גופן הכותרות', fonts),
@@ -189,6 +245,7 @@ export function settingsScreen(el: HTMLElement) {
       section('📲 התקנה במסך הבית', h('p', { class: 'set-label' }, 'אייקון במסך הבית שפותח את האפליקציה בלחיצה אחת.'),
         h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => (await import('../ui/install')).installApp() }, '📲 להתקנה')),
       section('🌟 קרדיטים', credits),
+      section('↺ ברירת מחדל', h('p', { class: 'set-label' }, 'מחזיר את העיצוב, הרקע, הגופנים, הלוגו והפינות להתחלה. החוברות והצביעה לא נפגעות.'), resetLook),
       section('אודות', h('p', { class: 'set-about' }, "Miriam's Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.")),
     )));
   const onLeave = () => toast('ההגדרות נשמרו');

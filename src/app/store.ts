@@ -108,6 +108,9 @@ export const prefs = {
   set(key: string, value: unknown): void {
     try { localStorage.setItem('mcb.' + key, JSON.stringify(value)); } catch { /* not saved */ }
   },
+  del(key: string): void {
+    try { localStorage.removeItem('mcb.' + key); } catch { /* nothing to remove */ }
+  },
 };
 
 export function uid(prefix = ''): string {

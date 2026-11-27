@@ -137,6 +137,32 @@ function ornament(kind: 'front' | 'back', base: string): string {
 </svg>`;
 }
 
+/** The main colour of a cover picture (its outer band), so the binding around the pages matches it. */
+export async function coverTone(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const c = document.createElement('canvas'); c.width = 48; c.height = 64;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(img, 0, 0, 48, 64);
+    const d = x.getImageData(0, 0, 48, 64).data;
+    // the most common colour of the outer band, in coarse bins
+    const bins = new Map<number, { n: number; r: number; g: number; b: number }>();
+    for (let y = 0; y < 64; y++) for (let xx = 0; xx < 48; xx++) {
+      if (xx > 5 && xx < 42 && y > 6 && y < 57) continue;
+      const i = (y * 48 + xx) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+      const k = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
+      const e = bins.get(k) ?? { n: 0, r: 0, g: 0, b: 0 };
+      e.n++; e.r += r; e.g += g; e.b += b; bins.set(k, e);
+    }
+    const top = [...bins.values()].sort((a, b) => b.n - a.n)[0];
+    if (!top) return null;
+    const hex = '#' + [top.r, top.g, top.b].map((v) => Math.round(v / top.n).toString(16).padStart(2, '0')).join('');
+    // a leather binding is a little deeper than the printed cover
+    return shade(hex, -0.18);
+  } catch { return null; }
+}
+
 export function coverFace(book: BookMeta, url: string | null, which: 'cover' | 'back' = 'cover'): HTMLElement {
   const face = h('div', { class: 'cover cover--' + which });
   face.style.setProperty('--cover', book.coverColor);

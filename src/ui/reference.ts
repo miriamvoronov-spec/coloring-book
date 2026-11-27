@@ -15,23 +15,54 @@ export const refOpen = () => !!open;
 export function openReference(src: string, title: string, onClose?: () => void, onImage?: (src: string) => void): () => void {
   open?.();
   const img = h('img', { class: 'refwin__img', src, alt: title, draggable: false }) as HTMLImageElement;
+  if (!src) img.hidden = true;
   const view = h('div', { class: 'refwin__view' }, img);
   const zoomOut = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'הקטנה' }, '−');
   const zoomIn = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'הגדלה' }, '+');
   const fitBtn = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'להתאים לחלון' }, '⤢');
   const closeBtn = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'סגירה' }, '✕');
   // any picture of her own as the reference
-  const file = h('input', { type: 'file', accept: 'image/*', hidden: true }) as HTMLInputElement;
-  const fileBtn = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'תמונה משלי לרפרנס', title: 'תמונה משלי' }, '🖼');
+  const file = h('input', { type: 'file', accept: 'image/*,application/pdf,.pdf', hidden: true }) as HTMLInputElement;
+  const fileBtn = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'תמונה או PDF משלי לרפרנס', title: 'תמונה או PDF משלי' }, '🖼');
   fileBtn.addEventListener('click', () => file.click());
   const titleEl = h('span', { class: 'refwin__title' }, title);
-  file.addEventListener('change', () => {
+  // a PDF: one page at a time, with arrows
+  const prevP = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'העמוד הקודם', hidden: true }, '›');
+  const nextP = h('button', { class: 'icon-btn refwin__btn', type: 'button', 'aria-label': 'העמוד הבא', hidden: true }, '‹');
+  const empty = h('button', { class: 'refwin__empty', type: 'button', hidden: !!src }, '🖼 לבחור תמונה (PNG, JPG) או PDF');
+  empty.addEventListener('click', () => file.click());
+  let pdf: { doc: import('../app/pdfimport').PdfDoc; n: number; name: string } | null = null;
+  const show = (url: string, name: string) => { img.src = url; img.hidden = false; empty.hidden = true; titleEl.textContent = name; s = 1; tx = 0; ty = 0; apply(); onImage?.(url); };
+  const showPdfPage = async () => {
+    if (!pdf) return;
+    titleEl.textContent = `${pdf.name} · ${pdf.n}/${pdf.doc.numPages}`;
+    const { renderPage } = await import('../app/pdfimport');
+    const c = await renderPage(pdf.doc, pdf.n, 2000);
+    show(c.toDataURL('image/png'), `${pdf.name} · ${pdf.n}/${pdf.doc.numPages}`);
+    prevP.hidden = nextP.hidden = pdf.doc.numPages < 2;
+  };
+  prevP.addEventListener('click', () => { if (pdf && pdf.n > 1) { pdf.n--; void showPdfPage(); } });
+  nextP.addEventListener('click', () => { if (pdf && pdf.n < pdf.doc.numPages) { pdf.n++; void showPdfPage(); } });
+  file.addEventListener('change', async () => {
     const f = file.files?.[0]; if (!f) return;
+    file.value = '';
+    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+      titleEl.textContent = 'פותחת את ה-PDF…';
+      try {
+        const { openPdf } = await import('../app/pdfimport');
+        void pdf?.doc.destroy();
+        pdf = { doc: await openPdf(f), n: 1, name: f.name.replace(/\.pdf$/i, '') };
+        await showPdfPage();
+      } catch (e) { titleEl.textContent = e instanceof Error ? e.message : 'לא הצלחתי לפתוח את ה-PDF'; }
+      return;
+    }
+    void pdf?.doc.destroy(); pdf = null; prevP.hidden = nextP.hidden = true;
     const r = new FileReader();
-    r.onload = () => { img.src = String(r.result); titleEl.textContent = f.name; s = 1; tx = 0; ty = 0; apply(); onImage?.(img.src); };
+    r.onload = () => show(String(r.result), f.name);
     r.readAsDataURL(f);
   });
-  const bar = h('div', { class: 'refwin__bar' }, titleEl, zoomOut, zoomIn, fitBtn, fileBtn, closeBtn, file);
+  const bar = h('div', { class: 'refwin__bar' }, titleEl, prevP, nextP, zoomOut, zoomIn, fitBtn, fileBtn, closeBtn, file);
+  view.append(empty);
   const win = h('div', { class: 'refwin', role: 'dialog', 'aria-label': title }, bar, view);
   document.body.append(win);
   current = win;
@@ -111,7 +142,7 @@ export function openReference(src: string, title: string, onClose?: () => void, 
   const ro = new ResizeObserver(() => { const r = win.getBoundingClientRect(); pos.w = r.width; pos.h = r.height; remember(); });
   ro.observe(win);
 
-  const close = () => { ro.disconnect(); win.remove(); open = null; current = null; picking = null; onClose?.(); };
+  const close = () => { void pdf?.doc.destroy(); ro.disconnect(); win.remove(); open = null; current = null; picking = null; onClose?.(); };
   closeBtn.addEventListener('click', close);
   open = close;
   return close;

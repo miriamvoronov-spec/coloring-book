@@ -31,7 +31,7 @@
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: radial-gradient(120% 90% at 50% 20%, var(--wood-2), var(--wood-1) 55%, var(--wood-0));
+  background: var(--bg-blend, radial-gradient(120% 90% at 50% 20%, var(--wood-2), var(--wood-1) 55%, var(--wood-0)));
   color: var(--paper);
   font-family: var(--font-body);
   font-size: 16px;
@@ -821,4 +821,17 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .lyr__dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
 .palwin__act { width: 40px; height: 40px; border: 0; border-radius: 8px; background: rgba(255,248,230,.08); cursor: pointer; font-size: 1rem; }
 .palwin__act:hover { background: rgba(255,248,230,.2); }
+.refwin__empty { position: absolute; inset: 12px; border: 2px dashed rgba(122,74,30,.45); border-radius: 12px; background: transparent; color: #6b4a2a; font-size: 1.05rem; padding: 12px; }
+.refwin__empty[hidden], .refwin__img[hidden] { display: none; }
 .refwin.is-picking .refwin__view { cursor: crosshair; outline: 3px solid #e9c46a; outline-offset: -3px; }
+
+/* blended background */
+.blend__preview { height: 54px; border-radius: 12px; border: 1px solid rgba(231,184,80,.35); margin: 6px 0 10px; }
+.blend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.blend__chip { display: inline-flex; align-items: center; gap: 4px; }
+/* room under the last setting for the music button in the corner */
+.settings__body { padding-bottom: 96px; }
+/* settings has its own music controls, so the corner button stays out of the way there */
+body:has(.settings) .player { display: none; }
+/* printed books bring their own white margins: the page art fills the leaf */
+.spreadview--scan .tpage__art { inset: 1.8% 2.2% 4.2%; }

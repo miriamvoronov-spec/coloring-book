@@ -205,3 +205,86 @@ export function logoCrown(size: number, label: string): string {
   <g fill="url(#lk-gold)" stroke="#b07a26" stroke-width=".5">${star(120, 174, 7, 's1')}${star(36, 60, 7, 's2')}${star(206, 52, 8, 's3')}${star(214, 110, 4, 's4')}</g>
 </svg>`;
 }
+
+/** A rainbow arching out of an open coloring book, a cloud at each end. */
+export function logoRainbow(size: number, label: string): string {
+  const bands = ['#ef476f', '#f78c6b', '#ffd166', '#06d6a0', '#118ab2', '#9d7ae6'];
+  return `
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
+  <defs>${GOLD('lr-gold')}
+    <radialGradient id="lr-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff0c0" stop-opacity=".45"/><stop offset="1" stop-color="#fff0c0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="120" cy="116" r="112" fill="url(#lr-glow)"/>
+  ${bands.map((c, i) => `<path d="M${44 + i * 7} 150 A ${76 - i * 7} ${76 - i * 7} 0 0 1 ${196 - i * 7} 150" fill="none" stroke="${c}" stroke-width="7.5"/>`).join('')}
+  <g fill="#fffaf0" stroke="#d9c3a0" stroke-width="1.5"><path d="M30 152 a14 14 0 0 1 20 -14 a16 16 0 0 1 28 6 a11 11 0 0 1 2 22 H36 a10 10 0 0 1 -6 -14 Z"/><path d="M160 152 a14 14 0 0 1 20 -14 a16 16 0 0 1 28 6 a11 11 0 0 1 2 22 H166 a10 10 0 0 1 -6 -14 Z"/></g>
+  <ellipse cx="120" cy="212" rx="86" ry="7" fill="#000" opacity=".25"/>
+  <path d="M120 176 C 96 166, 62 166, 34 174 V 206 C 62 198, 96 198, 120 208 Z" fill="#fffaf0" stroke="url(#lr-gold)" stroke-width="3"/>
+  <path d="M120 176 C 144 166, 178 166, 206 174 V 206 C 178 198, 144 198, 120 208 Z" fill="#fff4e0" stroke="url(#lr-gold)" stroke-width="3"/>
+  <path d="M50 186 q14 -6 28 0 M58 196 q10 -4 20 0" stroke="#3b2a1e" stroke-width="1.5" fill="none"/>
+  <text x="160" y="194" font-size="11" font-weight="700" font-family="Fredoka, sans-serif" fill="#3b2a1e" text-anchor="middle">3</text>
+  <g fill="url(#lr-gold)" stroke="#b07a26" stroke-width=".5">${star(120, 40, 9, 's1')}${star(40, 70, 6, 's2')}${star(204, 76, 7, 's3')}${star(120, 120, 5, 's4')}</g>
+</svg>`;
+}
+
+/** A paintbrush painting a swirl of colour, ending in a star. */
+export function logoBrush(size: number, label: string): string {
+  return `
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
+  <defs>${GOLD('lb-gold')}
+    <linearGradient id="lb-swirl" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9d7ae6"/><stop offset=".35" stop-color="#ef476f"/><stop offset=".7" stop-color="#ffd166"/><stop offset="1" stop-color="#06d6a0"/></linearGradient>
+    <radialGradient id="lb-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffd9f0" stop-opacity=".4"/><stop offset="1" stop-color="#ffd9f0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="120" cy="120" r="112" fill="url(#lb-glow)"/>
+  <path d="M60 186 C 30 140, 70 92, 116 108 C 156 122, 150 170, 118 166 C 92 162, 100 128, 132 124 C 170 120, 190 86, 176 52" fill="none" stroke="url(#lb-swirl)" stroke-width="14" stroke-linecap="round"/>
+  <g transform="translate(176 52)" fill="url(#lb-gold)" stroke="#b07a26" stroke-width=".8">${star(0, -8, 14, 'sb')}</g>
+  <g transform="translate(60 186) rotate(35)">
+    <rect x="-6" y="0" width="12" height="54" rx="5" fill="#7a4a24"/>
+    <rect x="-7" y="-14" width="14" height="16" fill="url(#lb-gold)" stroke="#a87a2a"/>
+    <path d="M-7 -14 C -9 -30, -2 -40, 0 -44 C 2 -40, 9 -30, 7 -14 Z" fill="#9d7ae6"/>
+  </g>
+  <g fill="url(#lb-gold)" stroke="#b07a26" stroke-width=".5">${star(40, 50, 7, 's1')}${star(210, 140, 6, 's2')}${star(150, 210, 5, 's3')}</g>
+</svg>`;
+}
+
+/** A cup full of coloured pencils with sparkles rising out of it. */
+export function logoPencilCup(size: number, label: string): string {
+  const pens = [['#ef476f', 74, -16], ['#ffd166', 92, -6], ['#06d6a0', 112, 0], ['#118ab2', 130, 6], ['#9d7ae6', 148, 14], ['#f78c6b', 164, 22]];
+  return `
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
+  <defs>${GOLD('lc-gold')}
+    <linearGradient id="lc-cup" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2d3f86"/><stop offset=".5" stop-color="#3e56b0"/><stop offset="1" stop-color="#18234f"/></linearGradient>
+    <radialGradient id="lc-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe6a6" stop-opacity=".4"/><stop offset="1" stop-color="#ffe6a6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="120" cy="116" r="112" fill="url(#lc-glow)"/>
+  ${pens.map(([c, x, r]) => `<g transform="translate(${x} 130) rotate(${r})"><rect x="-6" y="-92" width="12" height="96" fill="${c}" stroke="rgba(0,0,0,.25)"/><path d="M-6 -92 L 0 -110 L 6 -92 Z" fill="#f3d9a4"/><path d="M-2.5 -102 L 0 -110 L 2.5 -102 Z" fill="${c}"/></g>`).join('')}
+  <ellipse cx="120" cy="212" rx="64" ry="7" fill="#000" opacity=".28"/>
+  <path d="M68 124 H 172 L 162 208 H 78 Z" fill="url(#lc-cup)" stroke="url(#lc-gold)" stroke-width="3"/>
+  <path d="M66 120 H 174 V 132 H 66 Z" fill="url(#lc-gold)" stroke="#a87a2a"/>
+  <g fill="url(#lc-gold)" stroke="#b07a26" stroke-width=".5">${star(120, 170, 12, 's0')}${star(46, 54, 7, 's1')}${star(196, 40, 8, 's2')}${star(210, 120, 5, 's3')}</g>
+</svg>`;
+}
+
+/** A butterfly with coloured, numbered wings resting on an open book. */
+export function logoButterfly(size: number, label: string): string {
+  const num = (x: number, y: number, t: string) => `<text x="${x}" y="${y}" font-size="9" font-weight="700" font-family="Fredoka, sans-serif" fill="#3a2a1a" text-anchor="middle" dominant-baseline="central">${t}</text>`;
+  return `
+<svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
+  <defs>${GOLD('lf-gold')}
+    <radialGradient id="lf-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#d8f3ff" stop-opacity=".4"/><stop offset="1" stop-color="#d8f3ff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="120" cy="112" r="112" fill="url(#lf-glow)"/>
+  <ellipse cx="120" cy="214" rx="86" ry="7" fill="#000" opacity=".25"/>
+  <path d="M120 168 C 94 156, 60 156, 32 164 V 204 C 60 196, 94 196, 120 208 Z" fill="#fffaf0" stroke="url(#lf-gold)" stroke-width="3"/>
+  <path d="M120 168 C 146 156, 180 156, 208 164 V 204 C 180 196, 146 196, 120 208 Z" fill="#fff4e0" stroke="url(#lf-gold)" stroke-width="3"/>
+  <g stroke="#2b1a10" stroke-width="2.2">
+    <path d="M118 100 C 90 50, 40 60, 52 100 C 58 120, 92 122, 118 108 Z" fill="#ef476f"/>
+    <path d="M118 112 C 88 118, 64 140, 82 154 C 98 166, 114 140, 118 118 Z" fill="none"/>
+    <path d="M122 100 C 150 50, 200 60, 188 100 C 182 120, 148 122, 122 108 Z" fill="#118ab2"/>
+    <path d="M122 112 C 152 118, 176 140, 158 154 C 142 166, 126 140, 122 118 Z" fill="#ffd166"/>
+    <path d="M120 94 V 150" stroke-width="5" stroke-linecap="round"/>
+    <path d="M120 94 C 114 78, 104 72, 98 70 M120 94 C 126 78, 136 72, 142 70" fill="none"/>
+  </g>
+  ${num(96, 140, '4')}
+  <g fill="url(#lf-gold)" stroke="#b07a26" stroke-width=".5">${star(40, 40, 7, 's1')}${star(204, 36, 8, 's2')}${star(214, 130, 5, 's3')}${star(26, 134, 5, 's4')}</g>
+</svg>`;
+}

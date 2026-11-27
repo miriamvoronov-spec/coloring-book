@@ -30,6 +30,21 @@ export const TITLE_FONTS: { id: string; name: string; css: string }[] = [
   { id: 'vinyl', name: 'ויניל', css: "'Rubik Vinyl', system-ui, sans-serif" },
 ];
 
+/** Lettering for the app's name and for book names (Latin script; Hebrew letters fall back to the title font). */
+export const SCRIPT_FONTS: { id: string; name: string; css: string }[] = [
+  { id: 'walt', name: 'דיסני (Waltograph)', css: "'Waltograph'" },
+  { id: 'vibes', name: 'Great Vibes', css: "'Great Vibes'" },
+  { id: 'princess', name: 'Princess Sofia', css: "'Princess Sofia'" },
+  { id: 'dancing', name: 'Dancing Script', css: "'Dancing Script'" },
+  { id: 'parisienne', name: 'Parisienne', css: "'Parisienne'" },
+  { id: 'pacifico', name: 'Pacifico', css: "'Pacifico'" },
+  { id: 'lobster', name: 'Lobster', css: "'Lobster'" },
+  { id: 'cinzel', name: 'Cinzel Decorative', css: "'Cinzel Decorative'" },
+  { id: 'xmas', name: 'Mountains of Christmas', css: "'Mountains of Christmas'" },
+];
+/** Book names may be Hebrew: every title font is offered too. */
+export const BOOK_FONTS = [...SCRIPT_FONTS, ...TITLE_FONTS];
+
 /** Which side of the book's page has the rounded corners. */
 export const CORNER_STYLES: { id: string; name: string }[] = [
   { id: 'auto', name: 'בצד הפתוח של החוברת' },
@@ -85,6 +100,16 @@ export function applySettings(): void {
   root.style.setProperty('--font-display', f.css);
   root.classList.toggle('no-sparkles', !s.sparkles);
   root.dataset.corners = prefs.get('corners', 'auto');
+  const app = SCRIPT_FONTS.find((x) => x.id === prefs.get('appFont', 'walt')) ?? SCRIPT_FONTS[0];
+  root.style.setProperty('--font-script', `${app.css}, 'Brush Script MT', cursive`);
+  const bk = BOOK_FONTS.find((x) => x.id === prefs.get('bookFont', 'walt')) ?? SCRIPT_FONTS[0];
+  root.style.setProperty('--font-book', `${bk.css}, var(--font-display)`);
+  // a background made of several colours blended together (any theme)
+  const blend = prefs.get<string[]>('bgBlend', []);
+  if (blend.length >= 2) {
+    const stops = blend.map((c, i) => `${c} ${Math.round((i / (blend.length - 1)) * 100)}%`).join(', ');
+    root.style.setProperty('--bg-blend', `radial-gradient(120% 90% at 50% 15%, rgba(255,255,255,.10), transparent 60%), linear-gradient(${prefs.get('bgAngle', 160)}deg, ${stops})`);
+  } else root.style.removeProperty('--bg-blend');
 }
 
 /** Greeting by the hour of the day on this device. */
