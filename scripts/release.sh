@@ -6,11 +6,14 @@ cd "$(dirname "$0")/.."
 msg="${1:-Update installable app}"
 
 npm run build:artifact >/dev/null
+fixrc() { sed -i 's/"\xef\xbf\xbd"/"\\uFFFD"/g' "$1"; }
+fixrc dist-artifact/index.html
 mkdir -p dist-friends
 cp dist-artifact/index.html dist-friends/miriam-coloring-books.html
 if grep -q "classiques7" dist-friends/miriam-coloring-books.html; then echo "friends build references private files" >&2; exit 1; fi
 
 VITE_SAMPLES="${VITE_SAMPLES_PRIVATE:?set VITE_SAMPLES_PRIVATE}" npm run build:artifact >/dev/null
+fixrc dist-artifact/index.html
 
 npm run build >/dev/null
 if grep -rq "classiques7" dist; then echo "PWA build references private files" >&2; exit 1; fi
