@@ -1,0 +1,45 @@
+:root {
+  --bg: #2b1a10;
+  --bg-2: #5a3520;
+  --paper: #fbf4e4;
+  --gold: #e7b850;
+  --gold-deep: #c9932e;
+  --ink: #1c120b;
+  --touch-min: 44px;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: radial-gradient(circle at 50% 35%, var(--bg-2), var(--bg) 70%);
+  color: var(--paper);
+  font-family: system-ui, 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app { min-height: 100%; }
+
+button { min-width: var(--touch-min); min-height: var(--touch-min); }
+
+.splash {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.splash__logo { filter: drop-shadow(0 0 24px rgba(231, 184, 80, .45)); }
+.splash__title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  color: var(--gold);
+  direction: ltr;
+}
+.splash__subtitle { margin: 0; font-size: 1.25rem; }
+.splash__status { margin: 16px 0 0; opacity: .7; }

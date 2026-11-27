@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Placeholder icon. The real logo is designed in phase 2. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0" stop-color="#5a3520"/><stop offset="1" stop-color="#2b1a10"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" x2="1"><stop offset="0" stop-color="#f7d77a"/><stop offset="1" stop-color="#c9932e"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <path d="M96 330 Q176 290 256 330 Q336 290 416 330 L416 190 Q336 150 256 190 Q176 150 96 190 Z" fill="#fbf4e4" stroke="url(#gold)" stroke-width="10" stroke-linejoin="round"/>
+  <line x1="256" y1="190" x2="256" y2="330" stroke="#c9932e" stroke-width="6"/>
+  <g fill="url(#gold)">
+    <path d="M330 110 l8 20 20 8 -20 8 -8 20 -8 -20 -20 -8 20 -8z"/>
+    <path d="M390 150 l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5z"/>
+    <path d="M150 120 l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5z"/>
+  </g>
+</svg>

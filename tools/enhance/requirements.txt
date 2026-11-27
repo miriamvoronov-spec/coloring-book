@@ -1,0 +1,8 @@
+# Installed in phase 1. Versions are pinned once tuning is done.
+pymupdf
+opencv-python-headless
+numpy
+pillow
+scikit-image
+pytesseract
+# realesrgan / basicsr and potrace bindings are added in phase 1
