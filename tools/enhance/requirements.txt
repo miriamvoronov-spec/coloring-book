@@ -1,8 +1,9 @@
-# Installed in phase 1. Versions are pinned once tuning is done.
-pymupdf
-opencv-python-headless
-numpy
-pillow
-scikit-image
-pytesseract
-# realesrgan / basicsr and potrace bindings are added in phase 1
+pymupdf>=1.24
+opencv-python-headless>=4.9
+numpy>=1.26
+scipy>=1.11
+scikit-image>=0.22
+pillow>=10
+# External programs (not pip):
+#   tesseract  - Windows: https://github.com/UB-Mannheim/tesseract/wiki , Mac: brew install tesseract
+#   potrace    - Windows: https://potrace.sourceforge.net , Mac: brew install potrace

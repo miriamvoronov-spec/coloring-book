@@ -1,1 +1,1 @@
-"""Stage: clean. Implemented in phase 1 (see CLAUDE.md)."""
+"""Stage 6: lighting normalisation and shadow removal live in lines.darkness()."""
