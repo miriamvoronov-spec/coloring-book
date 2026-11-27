@@ -8,7 +8,7 @@ import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { logoMark } from '../ui/logo';
 import { appBar } from '../ui/appbar';
 import { dailyLine, greeting, greetingIcon, settings } from '../app/settings';
-import { shelfScreen } from './shelf';
+import { shelfScreen, FAV_SHELF, CUR_SHELF } from './shelf';
 
 const ICONS = ['✨', '🏰', '🧚', '🦄', '🌸', '🐉', '🌙', '⭐', '🎨', '🍄', '🐚', '🦋', '🌈', '👑', '🪄', '📚'];
 
@@ -81,18 +81,26 @@ export function categoriesScreen(el: HTMLElement) {
   });
   const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click() }, '📥 הוספת חוברת PDF');
   const [jobs, offJobs] = jobsBox();
+  const lists = h('div', { class: 'lists-row' });
   el.append(h('main', { class: 'categories' },
     appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf], home: 'splash' }), pick,
     !prefs.get('showGreeting', true) ? null : h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
       settings().name ? '' : h('button', { class: 'greet__ask', type: 'button', onclick: async () => { const { settingsScreen } = await import('./settings'); go(settingsScreen, 'forward'); } }, 'איך קוראים לך?')),
     prefs.get('showLine', true) ? h('p', { class: 'greet__line' }, dailyLine()) : null,
     jobs,
+    lists,
     grid,
     h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
 
   const render = async () => {
     const [cats, books] = await Promise.all([store.categories(), store.books()]);
     grid.replaceChildren();
+    lists.replaceChildren();
+    for (const [v, n] of [[FAV_SHELF, books.filter((b) => b.favorite).length], [CUR_SHELF, books.filter((b) => b.current).length]] as const) {
+      const pill = h('button', { class: 'list-pill', type: 'button' }, h('span', { class: 'list-pill__icon', 'aria-hidden': 'true' }, v.icon), h('span', {}, v.name), h('span', { class: 'list-pill__n' }, String(n)));
+      pill.addEventListener('click', () => go((r) => shelfScreen(r, v), 'forward'));
+      lists.append(pill);
+    }
     for (const c of cats) {
       const count = books.filter((b) => b.categoryId === c.id).length;
       const card = h('button', { class: 'cat-card', type: 'button' },

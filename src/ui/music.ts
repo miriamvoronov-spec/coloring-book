@@ -442,9 +442,47 @@ async function userTracks(ch: Channel): Promise<Blob[]> {
   return (await store.kv<Blob[]>('music-files-' + ch)) ?? [];
 }
 
+// ---------------- a tune of its own for each book made with Claude ----------------
+let bookTheme: { seed: number; style: string; title: string } | null = null;
+const THEME_BASE: Record<string, [Channel, number]> = {
+  elegant: ['fairy', 6], adult: ['focus', 9], storybook: ['fairy', 0], kids: ['playful', 0], botanical: ['focus', 3],
+  mandala: ['focus', 2], artnouveau: ['fairy', 3], vintage: ['playful', 4], stainedglass: ['fairy', 5], folk: ['playful', 5],
+};
+function bookPiece(t: { seed: number; style: string; title: string }): Piece {
+  const [ch, i] = THEME_BASE[t.style] ?? ['fairy', 4];
+  const base = STYLES[ch][i];
+  const r = rng(t.seed);
+  const progs = Object.values(P);
+  const st: Style = { ...base, title: t.title, key: base.key + ((t.seed % 7) - 3), bpm: Math.round(base.bpm * (0.92 + (t.seed % 17) / 100)), prog: progs[t.seed % progs.length] };
+  return { st, melody: compose(r, st), r };
+}
+const hash = (s: string) => { let x = 2166136261; for (const ch of s) x = Math.imul(x ^ ch.charCodeAt(0), 16777619); return x >>> 0; };
+
+/** While a book made with Claude is open, its own tune plays (composed from the book's id and drawing style). */
+export async function playBookTheme(bookId: string, style: string | undefined, title: string): Promise<void> {
+  bookTheme = { seed: hash(bookId), style: style ?? 'storybook', title };
+  if (music.on) await start(); else emit();
+}
+export async function endBookTheme(): Promise<void> {
+  if (!bookTheme) return;
+  bookTheme = null;
+  if (music.on) await start(); else emit();
+}
+
 async function start(): Promise<void> {
   stopNow();
   const ch = music.channel, i = music.track;
+  if (bookTheme) {
+    const c = ensureCtx();
+    if (c.state === 'suspended') await c.resume();
+    current = bookPiece(bookTheme); step = -INTRO; nextTime = c.currentTime + 0.1;
+    master.gain.cancelScheduledValues(c.currentTime);
+    master.gain.setValueAtTime(0.0001, c.currentTime);
+    master.gain.exponentialRampToValueAtTime(Math.max(0.0002, music.volume * 0.6), c.currentTime + 2);
+    timer = window.setInterval(tick, 120);
+    tick(); emit();
+    return;
+  }
   const own = await userTracks(ch);
   if (own.length) {
     const blob = own[i % own.length];
@@ -476,6 +514,7 @@ export async function play(): Promise<void> { prefs.set('music.on', true); await
 export function pause(): void { prefs.set('music.on', false); stopNow(); emit(); }
 export async function toggle(): Promise<void> { if (music.playing) pause(); else await play(); }
 export async function next(): Promise<void> {
+  if (bookTheme) { if (music.on) await start(); return; }
   const own = await userTracks(music.channel);
   prefs.set('music.track', (music.track + 1) % (own.length || 10));
   if (music.on) await start(); else emit();
@@ -491,6 +530,7 @@ export function setVolume(v: number): void {
   emit();
 }
 export async function nowPlaying(): Promise<string> {
+  if (bookTheme) return `המנגינה של ${bookTheme.title}`;
   const own = await userTracks(music.channel);
   if (own.length) { const f = own[music.track % own.length] as File; return f.name?.replace(/\.[^.]+$/, '') || `שיר ${music.track + 1}`; }
   return trackTitle(music.channel, music.track);

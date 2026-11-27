@@ -7,8 +7,14 @@ import { store } from './store';
 import { fromEntries, type Manifest } from './importer';
 import { toast } from '../ui/dom';
 
-/** Asset URLs of the sample books' manifests (filled in when the assets are uploaded). */
-export const SAMPLE_MANIFESTS: { key: string; url: string; categoryId: string }[] = [];
+/**
+ * Asset URLs of the sample books' manifests. They are given at build time
+ * (VITE_SAMPLES, a JSON list) only for her private copy, so the copy she
+ * shares with friends never points at the books she bought.
+ */
+export const SAMPLE_MANIFESTS: { key: string; url: string; categoryId: string }[] = (() => {
+  try { return JSON.parse((import.meta.env.VITE_SAMPLES as string | undefined) || '[]'); } catch { return []; }
+})();
 
 export async function loadSampleBooks(): Promise<void> {
   for (const s of SAMPLE_MANIFESTS) {

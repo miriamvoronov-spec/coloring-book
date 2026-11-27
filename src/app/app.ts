@@ -30,7 +30,7 @@ export function go(screen: Screen, transition: 'fade' | 'forward' | 'back' | 'no
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-claude', name: 'נוצר עם קלוד', icon: '✨', order: 0, role: 'claude' },
+  { id: 'cat-claude', name: 'החוברות האישיות שלי', icon: '✨', order: 0, role: 'claude' },
   { id: 'cat-imported', name: 'Disney Mystery Coloring Book', icon: '🏰', order: 1, role: 'imported' },
 ];
 
@@ -43,6 +43,9 @@ export async function seed(): Promise<void> {
     await store.putBook(book);
     await store.setKv('seeded-demo', true);
   }
+  // the creator's category was renamed
+  const cc = (await store.categories()).find((c) => c.id === 'cat-claude');
+  if (cc && cc.name === 'נוצר עם קלוד') await store.putCategory({ ...cc, name: 'החוברות האישיות שלי' });
   // the first version gave the demo book a flat purple cover
   for (const b of await store.books()) {
     if (b.demo && b.coverColor === '#6b3fa0') await store.putBook({ ...b, coverColor: DEMO_COVER, direction: 'rtl' });

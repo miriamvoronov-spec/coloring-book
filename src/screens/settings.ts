@@ -19,6 +19,16 @@ function toggle(label: string, on: boolean, set: (v: boolean) => void): HTMLElem
   return h('label', { class: 'switch' }, h('span', {}, label), input, h('span', { class: 'switch__track', 'aria-hidden': 'true' }));
 }
 
+function radios(name: string, opts: [string, string][], value: string, set: (v: string) => void) {
+  const box = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': name });
+  for (const [v, label] of opts) {
+    const b = h('button', { class: 'seg__btn' + (v === value ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(v === value) }, label);
+    b.addEventListener('click', () => { box.querySelectorAll('.seg__btn').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); }); b.classList.add('is-on'); b.setAttribute('aria-checked', 'true'); set(v); });
+    box.append(b);
+  }
+  return box;
+}
+
 export function settingsScreen(el: HTMLElement) {
   const s = settings();
   const hello = h('p', { class: 'set-hello' }, `${greetingIcon()} ${greeting()}`);
@@ -88,28 +98,9 @@ export function settingsScreen(el: HTMLElement) {
   void renderOwn();
 
   // ----- toolbar and books -----
-  const radios = (name: string, opts: [string, string][], value: string, set: (v: string) => void) => {
-    const box = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': name });
-    for (const [v, label] of opts) {
-      const b = h('button', { class: 'seg__btn' + (v === value ? ' is-on' : ''), type: 'button', role: 'radio', 'aria-checked': String(v === value) }, label);
-      b.addEventListener('click', () => { box.querySelectorAll('.seg__btn').forEach((x) => { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); }); b.classList.add('is-on'); b.setAttribute('aria-checked', 'true'); set(v); });
-      box.append(b);
-    }
-    return box;
-  };
   const side = radios('מיקום סרגל הכלים', [['right', 'ימין'], ['left', 'שמאל'], ['top', 'למעלה'], ['bottom', 'למטה']], prefs.get('toolbarSide', 'right'), (v) => prefs.set('toolbarSide', v));
-  const congrats = radios('סגנון עמוד כל הכבוד', [['elegant', 'אלגנטי: זר עלים ומסגרת'], ['playful', 'חגיגי: בלונים ודגלים']], prefs.get('congratsStyle', 'elegant'), (v) => prefs.set('congratsStyle', v));
   const dir = radios('כיוון דפדוף', [['rtl', 'מימין לשמאל (עברית)'], ['ltr', 'משמאל לימין (אנגלית)']], prefs.get('defaultDirection', 'rtl'), (v) => prefs.set('defaultDirection', v));
 
-  // ----- creating pages -----
-  const prov = prefs.get('imgProvider', 'claude');
-  const keyField = h('input', { class: 'field', type: 'password', id: 'set-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
-  const keyRow = h('div', { class: 'idea__row', hidden: prov === 'claude' }, h('label', { for: 'set-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), keyField);
-  const loadKey = (p: string) => { keyField.value = prefs.get('imgKey.' + p, ''); keyRow.hidden = p === 'claude'; };
-  let curProv = prov;
-  const provider = radios('שירות היצירה', [['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']], prov, (v) => { curProv = v; prefs.set('imgProvider', v); loadKey(v); });
-  keyField.addEventListener('input', () => prefs.set('imgKey.' + curProv, keyField.value.trim()));
-  loadKey(prov);
 
   // ----- backup -----
   const restorePick = h('input', { type: 'file', accept: '.zip,application/zip', hidden: true }) as HTMLInputElement;
@@ -151,9 +142,7 @@ export function settingsScreen(el: HTMLElement) {
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
-      section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir,
-        h('p', { class: 'set-label' }, 'עמוד "כל הכבוד" בסוף חוברות שנוצרו עם קלוד'), congrats),
-      section('✨ יצירת דפים', h('p', { class: 'set-label' }, 'מי מצייר את הדפים ב"צור חוברת צביעה". את סגנון הציור (אלגנטי, מבוגר, ילדותי, בוטני ועוד) בוחרים בחלון היצירה.'), provider, keyRow),
+      section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),
       section('💾 גיבוי ושחזור', h('p', { class: 'set-label' }, 'כל החוברות והצביעה שלך בקובץ אחד, להעברה לטאבלט אחר או לשמירה.'),
         h('div', { class: 'form__actions' }, backupBtn, h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => restorePick.click() }, '📂 שחזור מגיבוי')), restorePick, backupStatus),
       section('📲 התקנה במסך הבית', h('p', { class: 'set-about' }, 'בטאבלט: Chrome ← ⋮ ← "הוסף למסך הבית". כאן ב-claude.ai אפשר גם להצמיד את הדף, והוא נפתח בקישור בלי התקנה.')),
@@ -162,4 +151,20 @@ export function settingsScreen(el: HTMLElement) {
     )));
   const onLeave = () => toast('ההגדרות נשמרו');
   return () => { if (name.value.trim() !== s.name) onLeave(); };
+}
+
+/** Settings for creating books, shown inside "החוברות האישיות שלי". */
+export function creationSettings(): HTMLElement {
+  // ----- creating pages -----
+  const prov = prefs.get('imgProvider', 'claude');
+  const keyField = h('input', { class: 'field', type: 'password', id: 'set-key', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
+  const keyRow = h('div', { class: 'idea__row', hidden: prov === 'claude' }, h('label', { for: 'set-key', class: 'set-label' }, 'המפתח נשמר רק במכשיר הזה ונשלח רק לשירות שבחרת'), keyField);
+  const loadKey = (p: string) => { keyField.value = prefs.get('imgKey.' + p, ''); keyRow.hidden = p === 'claude'; };
+  let curProv = prov;
+  const provider = radios('שירות היצירה', [['claude', 'קלוד (מובנה, בלי מפתח)'], ['openai', 'OpenAI gpt-image'], ['gemini', 'Google Gemini']], prov, (v) => { curProv = v; prefs.set('imgProvider', v); loadKey(v); });
+  keyField.addEventListener('input', () => prefs.set('imgKey.' + curProv, keyField.value.trim()));
+  loadKey(prov);
+  return h('div', { class: 'idea' },
+    h('p', { class: 'set-label' }, 'מי מצייר את הדפים. סגנון הציור (אלגנטי, מבוגר, ילדותי, בוטני ועוד) נבחר בחלון היצירה, ועמוד "כל הכבוד" בסוף כל חוברת מתאים את עצמו לסגנון שלה.'),
+    provider, keyRow);
 }

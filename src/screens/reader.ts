@@ -6,15 +6,18 @@ import { PageEngine, type ToolState } from '../coloring/engine';
 import { Toolbar } from '../coloring/toolbar';
 import { colorPicker } from '../coloring/picker';
 import { h, sheet, toast, reducedMotion } from '../ui/dom';
-import { coverFace, coverUrl } from '../ui/cover';
+import { coverFace, coverUrl, shade } from '../ui/cover';
 import { icons } from '../ui/icons';
 import { confetti, sparkle } from '../ui/sparkles';
 import { paperFlip } from '../ui/sound';
+import { settings } from '../app/settings';
+import { logoMark } from '../ui/logo';
 import { closeBookAnimation } from './book3d';
+import { endBookTheme, playBookTheme } from '../ui/music';
 import { shareBook, sharePage } from '../app/share';
 import { shelfScreen } from './shelf';
 
-type Entry = { kind: 'cover' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
+type Entry = { kind: 'cover' } | { kind: 'title' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
 
 interface Surface { el: HTMLElement; aspect: number; engine?: PageEngine; page?: PageRec; snapshot(): Node; destroy(): Promise<void> }
 
@@ -26,7 +29,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   let coverId: string | null = null;
   const ready = (async () => {
     const pages = await Promise.all(book.pageIds.map((id) => store.page(id)));
-    entries.push({ kind: 'cover' });
+    entries.push({ kind: 'cover' }, { kind: 'title' });
     for (const p of pages) {
       if (!p) continue;
       if (p.kind === 'cover') { coverId = p.id; continue; }
@@ -105,10 +108,30 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const p = backId ? await store.page(backId) : undefined;
     return { el: face, aspect: p ? p.width / p.height : 1 / 1.4, snapshot: () => face.cloneNode(true), destroy: async () => face.remove() };
   };
+  /** The first spread after the cover: "this book belongs to…" inside the cover, and the title page beside it. */
+  const titleSurface = async (): Promise<Surface> => {
+    const owner = settings().name.trim();
+    const inside = h('div', { class: 'spread__in' },
+      h('div', { class: 'bookplate' },
+        h('div', { class: 'bookplate__star', 'aria-hidden': 'true' }, '✦'),
+        h('div', { class: 'bookplate__k' }, 'ספר זה שייך ל'),
+        h('div', { class: 'bookplate__name', dir: 'auto' }, owner || '✨')));
+    inside.style.setProperty('--endpaper', shade(book.coverColor, -0.06));
+    const titlePage = h('div', { class: 'spread__page' },
+      h('div', { class: 'book3d__frame', 'aria-hidden': 'true' }),
+      h('div', { class: 'book3d__titlepage' },
+        h('div', { class: 'book3d__mark', html: logoMark(120) }),
+        h('div', { class: 'book3d__ttl', dir: 'auto' }, book.title),
+        h('div', { class: 'book3d__rule', 'aria-hidden': 'true' }, h('span', {}, '✦')),
+        h('div', { class: 'book3d__sub', dir: 'ltr' }, 'Miriam Coloring Books')));
+    // in a right-to-left book the cover opens to the right, so its inside is on the right
+    const el = h('div', { class: 'spread' + (rtl ? ' spread--rtl' : '') }, inside, titlePage);
+    return { el, aspect: 2 / 1.4, snapshot: () => el.cloneNode(true), destroy: async () => el.remove() };
+  };
   /** "Well done" page in the cover colour: free colouring, no numbers. */
   const congratsSurface = async (): Promise<Surface> => {
     const W = 1600, H = 2240;
-    const image = await congratsArt(W, H);
+    const image = await congratsArt(W, H, book.style);
     const page: PageRec = { id: 'congrats-' + book.id, bookId: book.id, kind: 'coloring', width: W, height: H, image, labels: [], legend: [], numbersInImage: false };
     const engine = new PageEngine(page, () => state, engineEvents());
     engine.drawEnabled = coloring;
@@ -132,7 +155,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     engine.linesVisible = linesShown; engine.linesOpacity = linesOpacity; engine.numbersVisible = numbersShown;
     return { el: engine.el, aspect: page.width / page.height, engine, page, snapshot: () => engine.snapshot(1200), destroy: () => engine.destroy() };
   };
-  const makeSurface = (e: Entry) => e.kind === 'cover' ? coverSurface() : e.kind === 'back' ? backSurface() : e.kind === 'congrats' ? congratsSurface() : pageSurface(e.id);
+  const makeSurface = (e: Entry) => e.kind === 'cover' ? coverSurface() : e.kind === 'title' ? titleSurface() : e.kind === 'back' ? backSurface() : e.kind === 'congrats' ? congratsSurface() : pageSurface(e.id);
 
   const leafFace = (content: Node, cls: string) => {
     const f = h('div', { class: 'leaf__face ' + cls });
@@ -236,7 +259,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const e = entries[index];
     const pageNo = entries.slice(0, index + 1).filter((x) => x.kind === 'page').length;
     const total = entries.filter((x) => x.kind === 'page').length;
-    counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'back' ? 'כריכה אחורית' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
+    counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'title' ? 'פתיחה' : e.kind === 'back' ? 'כריכה אחורית' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
     const isPage = e.kind === 'page';
     solutionBtn.hidden = !isPage;
     modeBtn.hidden = !isPage && e.kind !== 'congrats';
@@ -413,7 +436,10 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     void show(start, 0);
   });
 
+  if (book.madeWithClaude && book.music !== false) void playBookTheme(book.id, book.style, book.title);
+
   return () => {
+    void endBookTheme();
     ro.disconnect();
     removeEventListener('toolbar-moved', layout);
     removeEventListener('keydown', onKey);
@@ -425,8 +451,9 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 }
 
 /** "כל הכבוד!" in hollow balloon letters with balloons, stars and hearts: black outlines on white, to colour freely. */
-async function congratsArt(W: number, H: number): Promise<Blob> {
-  if (prefs.get('congratsStyle', 'elegant') === 'elegant') return congratsElegant(W, H);
+/** The well-done page follows the book's drawing style: festive for playful styles, elegant for the rest. */
+async function congratsArt(W: number, H: number, style?: string): Promise<Blob> {
+  if (!['kids', 'storybook', 'folk'].includes(style ?? '')) return congratsElegant(W, H);
   const family = '"Secular One", "Suez One", sans-serif';
   try { await document.fonts.load(`400 300px ${family}`, 'כל הכבוד'); } catch { /* fall back to what is there */ }
   const c = document.createElement('canvas'); c.width = W; c.height = H;

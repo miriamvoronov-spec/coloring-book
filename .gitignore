@@ -24,3 +24,4 @@ tools/enhance/models/
 .env
 .env.*
 dist-artifact/
+dist-friends/

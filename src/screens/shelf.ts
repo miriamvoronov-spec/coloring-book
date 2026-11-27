@@ -15,7 +15,13 @@ import { readerScreen } from './reader';
 
 const SWATCHES = ['#1f2c5c', '#7a1f2b', '#1f5a45', '#4a2058', '#1d4f5a', '#5a3218', '#8c3a55', '#2f4a22', '#2e3440', '#8a5a14'];
 
+/** Shelves that gather books from every category: favourites and the ones being coloured now. */
+export const VIRTUAL_FAV = '__fav', VIRTUAL_CUR = '__cur';
+export const FAV_SHELF: Category = { id: VIRTUAL_FAV, name: 'חוברות אהובות', icon: '❤️', order: -2 };
+export const CUR_SHELF: Category = { id: VIRTUAL_CUR, name: 'חוברות נוכחיות', icon: '📖', order: -1 };
+
 export function shelfScreen(el: HTMLElement, cat: Category) {
+  const virtual = cat.id === VIRTUAL_FAV || cat.id === VIRTUAL_CUR;
   const shelves = h('div', { class: 'shelves' });
   const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf', hidden: true });
   const importBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '📥 הוספת חוברת PDF');
@@ -39,13 +45,15 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
   });
 
   el.append(h('main', { class: 'shelf-screen' },
-    appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: [importBtn] }),
+    appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: virtual ? [] : [importBtn] }),
     cat.role === 'claude' ? h('div', { class: 'create-row' },
-      h('button', { class: 'btn btn--gold create-row__btn', type: 'button', onclick: () => openCreator({ categoryId: cat.id, onDone: () => void render() }) }, '✨ צור חוברת צביעה')) : null,
+      h('button', { class: 'btn btn--gold create-row__btn', type: 'button', onclick: () => openCreator({ categoryId: cat.id, onDone: () => void render() }) }, '✨ צור חוברת צביעה'),
+      h('button', { class: 'btn create-row__set', type: 'button', onclick: async () => { const { creationSettings } = await import('./settings'); sheet('⚙️ הגדרות יצירה', creationSettings()); } }, '⚙️ הגדרות יצירה')) : null,
     shelves, fileInput));
 
   const render = async () => {
-    const books = (await store.books()).filter((b) => b.categoryId === cat.id);
+    const all = await store.books();
+    const books = cat.id === VIRTUAL_FAV ? all.filter((b) => b.favorite) : cat.id === VIRTUAL_CUR ? all.filter((b) => b.current) : all.filter((b) => b.categoryId === cat.id);
     shelves.replaceChildren();
     const perShelf = innerWidth < 560 ? 2 : innerWidth < 900 ? 3 : innerWidth < 1300 ? 4 : 5;
     const rows = Math.max(2, Math.ceil(books.length / perShelf));
@@ -56,7 +64,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
       if (!books.length && r === 0) {
         row.append(h('div', { class: 'shelf__empty' },
           h('p', {}, 'המדף עוד ריק.'),
-          h('p', {}, 'ייבאי קובץ .colorbook מכלי העיבוד, או תמונות של דפים.')));
+          h('p', {}, virtual ? 'לחיצה ארוכה על חוברת בכל מדף פותחת עריכה, ושם אפשר להוסיף אותה לרשימה הזו.' : cat.role === 'claude' ? 'לחצי על "✨ צור חוברת צביעה" כדי להתחיל.' : 'הוסיפי חוברת PDF בכפתור למעלה.')));
       }
       shelf.append(row, h('div', { class: 'shelf__board', 'aria-hidden': 'true' }));
       shelves.append(shelf);
@@ -101,6 +109,9 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     void store.categories().then((cats) => {
       for (const c of cats) catSel.append(h('option', { value: c.id, selected: c.id === b.categoryId }, `${c.icon} ${c.name}`));
     });
+    const fav = h('input', { type: 'checkbox', id: 'book-fav', checked: !!b.favorite }) as HTMLInputElement;
+    const cur = h('input', { type: 'checkbox', id: 'book-cur', checked: !!b.current }) as HTMLInputElement;
+    const tune = h('input', { type: 'checkbox', id: 'book-tune', checked: b.music !== false }) as HTMLInputElement;
     const save = h('button', { class: 'btn btn--gold', type: 'button' }, 'שמירה');
     const share = h('button', { class: 'btn', type: 'button' }, 'שיתוף');
     const del = h('button', { class: 'btn btn--danger', type: 'button' }, 'מחיקה');
@@ -109,10 +120,14 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
       h('label', {}, 'צבע כריכה'), sw,
       h('label', { for: 'book-dir' }, 'כיוון הדפדוף'), dirSel,
       h('label', { for: 'book-cat' }, 'קטגוריה'), catSel,
+      h('div', { class: 'book-lists' },
+        h('label', { class: 'check' }, fav, h('span', {}, '❤️ ברשימת החוברות האהובות')),
+        h('label', { class: 'check' }, cur, h('span', {}, '📖 ברשימת החוברות הנוכחיות')),
+        b.madeWithClaude ? h('label', { class: 'check' }, tune, h('span', {}, '🎵 מנגינה משלה כשהחוברת פתוחה')) : null),
       h('div', { class: 'form__actions' }, save, share, del));
     const close = sheet('עריכת חוברת', body);
     save.addEventListener('click', async () => {
-      await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId });
+      await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId, favorite: fav.checked, current: cur.checked, ...(b.madeWithClaude ? { music: tune.checked } : {}) });
       close(); await refresh();
     });
     share.addEventListener('click', () => { close(); void shareBook(b); });

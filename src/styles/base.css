@@ -315,6 +315,7 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .book__edges { position: absolute; top: 9px; bottom: 9px; right: 5px; width: 13px; border-radius: 0 3px 3px 0; background: var(--gilt); box-shadow: 2px 0 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(120,80,20,.4); }
 .book--rtl .book__edges { right: auto; left: 5px; border-radius: 3px 0 0 3px; }
 .book__page { position: relative; width: 100%; height: 100%; background: var(--paper); border-radius: 2px 4px 4px 2px; overflow: hidden; perspective: 2200px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.book__page > .spread { position: absolute; inset: 0; border-radius: 0; box-shadow: none; }
 .book__page > .cover, .book__page > .congrats { position: absolute; inset: 0; border-radius: 0; font-size: clamp(12px, 2.4vmin, 22px); }
 .book__gutter { position: absolute; top: 10px; bottom: 10px; left: 6px; width: 34px; pointer-events: none; background: linear-gradient(90deg, rgba(60,35,15,.38), rgba(60,35,15,.12) 40%, transparent); z-index: 3; }
 .book--rtl .book__gutter { left: auto; right: 6px; transform: scaleX(-1); }
@@ -644,3 +645,26 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .book3d-mover { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
 /* gradients must not tile under a translucent border (that made a light line along the bottom of gold buttons) */
 .btn, .pill, .fab, .player__fab, .icon-btn, .tb__btn, button { background-origin: border-box; background-repeat: no-repeat; }
+.lists-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 0 16px 14px; }
+.list-pill { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px; border-radius: 999px; border: 1px solid rgba(231,184,80,.45); background: rgba(27,15,8,.55); color: var(--gold-hi); font-family: var(--font-display); font-size: 1.1rem; }
+.list-pill:hover, .list-pill:focus-visible { border-color: var(--gold); background: rgba(231,184,80,.14); }
+.list-pill__icon { font-size: 1.3rem; }
+.list-pill__n { min-width: 28px; height: 28px; border-radius: 999px; background: rgba(231,184,80,.22); color: var(--paper); font-family: inherit; font-size: .9rem; display: grid; place-items: center; padding: 0 8px; }
+.create-row { gap: 10px; flex-wrap: wrap; }
+.create-row__set { min-height: 56px; border-radius: 999px; }
+.book-lists { display: grid; gap: 8px; margin-top: 6px; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.check input { width: 22px; height: 22px; accent-color: var(--gold); }
+/* the opening spread inside the reader */
+.spread { display: grid; grid-template-columns: 1fr 1fr; container-type: size; box-shadow: 0 18px 40px rgba(0,0,0,.45); border-radius: 6px; overflow: hidden; }
+.spread--rtl { direction: ltr; }
+.spread--rtl .spread__in { order: 2; }
+.spread__in { position: relative; display: grid; place-items: center; background: radial-gradient(120% 90% at 50% 40%, var(--endpaper, #2a3566), #141a36); box-shadow: inset -14px 0 20px rgba(0,0,0,.45); }
+.spread--rtl .spread__in { box-shadow: inset 14px 0 20px rgba(0,0,0,.45); }
+.spread__page { position: relative; background: linear-gradient(90deg, #d9c49b, #fbf4e4 8%, #fffaf0); }
+.spread--rtl .spread__page { background: linear-gradient(270deg, #d9c49b, #fbf4e4 8%, #fffaf0); }
+.spread .bookplate { font-size: 3.1cqh; }
+.spread .book3d__titlepage { font-size: 3.3cqh; }
+.spread .book3d__mark .logo-mark { width: 19cqh; }
+.spread .book3d__frame::before, .spread .book3d__frame::after { font-size: 3cqh; }
+.reader:not(.reader--color) .legend { display: none; }

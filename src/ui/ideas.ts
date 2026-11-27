@@ -77,6 +77,7 @@ export function ideaPanel(o: PanelOpts): HTMLElement {
     fillBooks();
   })();
 
+  const tune = h('input', { type: 'checkbox', id: 'idea-tune', checked: true }) as HTMLInputElement;
   const status = h('p', { class: 'idea__status', role: 'status' });
   const go1 = h('button', { class: 'btn btn--gold', type: 'button' }, mode === 'page' ? '✨ צור דף' : '✨ הצע שמות לעמודים');
   const surpriseBtn = h('button', { class: 'btn', type: 'button' }, '🎲 הפתע אותי');
@@ -115,7 +116,7 @@ export function ideaPanel(o: PanelOpts): HTMLElement {
   /** Drawing runs in the background: the window closes and progress shows on the library screen. */
   const makePages = (items: { idea: string; title: string }[], fallbackTitle: string) => {
     const lvl = level, nColors = Number(colors.value), st = style;
-    const tgt = target.value ? { bookId: target.value } : { title: bookTitle.value.trim() || fallbackTitle, coverColor: cover, categoryId: catSel.value || 'cat-claude' };
+    const tgt = target.value ? { bookId: target.value } : { title: bookTitle.value.trim() || fallbackTitle, coverColor: cover, categoryId: catSel.value || 'cat-claude', style: st, music: tune.checked };
     const label = 'bookId' in tgt ? (allBooks.find((b) => b.id === tgt.bookId)?.title ?? fallbackTitle) : tgt.title;
     startJob(`✨ ${label}`, catSel.value || 'cat-claude', async (progress, signal) => {
       const pages: PageRec[] = [];
@@ -178,7 +179,8 @@ export function ideaPanel(o: PanelOpts): HTMLElement {
     status, titlesBox,
     h('div', { class: 'idea__where' },
       h('label', { for: 'idea-cat', class: 'set-label' }, mode === 'page' ? 'לאיזו קטגוריה לשייך?' : 'באיזו קטגוריה לשים את החוברת?'), catSel,
-      mode === 'page' ? h('label', { for: 'idea-target', class: 'set-label' }, 'לאיזו חוברת?') : null, target, newBook),
+      mode === 'page' ? h('label', { for: 'idea-target', class: 'set-label' }, 'לאיזו חוברת?') : null, target, newBook,
+      h('label', { class: 'check' }, tune, h('span', {}, '🎵 להלחין לחוברת החדשה מנגינה משלה, שתתנגן כשהיא פתוחה'))),
     h('details', { class: 'idea__more' }, h('summary', {}, 'רמת קושי ומספר צבעים'),
       h('div', { class: 'idea__opts' },
         h('label', {}, 'רמת קושי'), levels,

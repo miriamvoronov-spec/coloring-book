@@ -252,8 +252,8 @@ export async function makePage(bookId: string, idea: string, title: string, o: M
   };
 }
 
-/** Add pages to an existing book or start a new one in "נוצר עם קלוד". */
-export async function savePages(target: { bookId: string } | { title: string; coverColor: string; categoryId: string }, pages: PageRec[]): Promise<BookMeta> {
+/** Add pages to an existing book or start a new one in "החוברות האישיות שלי". */
+export async function savePages(target: { bookId: string } | { title: string; coverColor: string; categoryId: string; style?: string; music?: boolean }, pages: PageRec[]): Promise<BookMeta> {
   if ('bookId' in target) {
     const book = await store.book(target.bookId);
     if (!book) throw new Error('החוברת לא נמצאה');
@@ -268,7 +268,7 @@ export async function savePages(target: { bookId: string } | { title: string; co
   for (const p of pages) await store.putPage({ ...p, bookId });
   const book: BookMeta = {
     id: bookId, categoryId: target.categoryId, title: target.title, coverColor: target.coverColor, direction: 'rtl',
-    madeWithClaude: true, pageIds: pages.map((p) => p.id), createdAt: Date.now(),
+    madeWithClaude: true, pageIds: pages.map((p) => p.id), createdAt: Date.now(), style: target.style, music: target.music,
   };
   await store.putBook(book);
   return book;

@@ -98,11 +98,12 @@ export async function openBookAnimation(book: BookMeta, front: string | null, fr
   const openEase = 'cubic-bezier(.45,.05,.3,1)';
   m.animate([{ transform: 'translate3d(0,0,0) scale(1)' }, { transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }], { duration: 800, easing: openEase, fill: 'forwards' });
   await anim(hinge, [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${-175 * sign}deg)` }], { duration: 800, easing: openEase });
-  // 3. glide into the first page and hand over to the reader
+  // 3. stay on the opening spread; the reader opens on the same spread underneath, and the animation melts into it
+  await wait(500);
   behind?.();
-  const k = pageScale(H);
-  m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: `translate3d(0,0,0) scale(${k})` }], { duration: 450, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
-  await anim(stage, [{ opacity: 1 }, { opacity: 1, offset: 0.45 }, { opacity: 0 }], { duration: 500, easing: 'ease-in' });
+  const k = Math.min(pageScale(H), (innerWidth - 40) / (2 * W));
+  m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: `translate3d(${sign * W * 0.5 * k}px,0,0) scale(${k})` }], { duration: 900, easing: 'cubic-bezier(.45,0,.25,1)', fill: 'forwards' });
+  await anim(stage, [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' });
   stage.remove();
 }
 

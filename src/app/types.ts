@@ -38,6 +38,12 @@ export interface BookMeta {
   pageIds: string[];
   createdAt: number;
   demo?: boolean;
+  /** Drawing style of a book made with Claude; its well-done page matches it. */
+  style?: string;
+  favorite?: boolean;
+  current?: boolean;
+  /** Books made with Claude have a tune of their own unless she turned it off. */
+  music?: boolean;
 }
 
 export interface PageRec {
