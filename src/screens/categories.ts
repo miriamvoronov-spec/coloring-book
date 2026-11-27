@@ -1,4 +1,6 @@
 /** Category cards: open a bookshelf, add, rename, choose an icon. */
+import { jobsBox } from '../ui/jobs';
+import { BOOKS_CHANGED } from '../app/jobs';
 import { addCategory, go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
@@ -78,11 +80,13 @@ export function categoriesScreen(el: HTMLElement) {
     pdfWizard(f);
   });
   const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click() }, '📥 הוספת חוברת PDF');
+  const [jobs, offJobs] = jobsBox();
   el.append(h('main', { class: 'categories' },
     appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf], home: 'splash' }), pick,
     !prefs.get('showGreeting', true) ? null : h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
       settings().name ? '' : h('button', { class: 'greet__ask', type: 'button', onclick: async () => { const { settingsScreen } = await import('./settings'); go(settingsScreen, 'forward'); } }, 'איך קוראים לך?')),
     prefs.get('showLine', true) ? h('p', { class: 'greet__line' }, dailyLine()) : null,
+    jobs,
     grid,
     h('p', { class: 'hint' }, 'לחיצה ארוכה על קטגוריה פותחת עריכה')));
 
@@ -106,4 +110,7 @@ export function categoriesScreen(el: HTMLElement) {
     grid.append(add);
   };
   void render();
+  const onBooks = () => void render();
+  addEventListener(BOOKS_CHANGED, onBooks);
+  return () => { offJobs(); removeEventListener(BOOKS_CHANGED, onBooks); };
 }

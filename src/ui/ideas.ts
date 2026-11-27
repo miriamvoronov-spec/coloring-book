@@ -7,23 +7,23 @@ import { go } from '../app/app';
 import { store } from '../app/store';
 import type { BookMeta, PageRec } from '../app/types';
 import { creatorError, history, LEVEL_HE, makePage, savePages, themeTitles, type Level } from '../app/creator';
-import { surprise, surpriseTheme } from '../app/ideas';
+import { freshIdeas, surprise, surpriseTheme } from '../app/ideas';
 import { h, sheet, toast } from './dom';
 import { sparkle } from './sparkles';
 
 const COVERS = ['#1f2c5c', '#4a2058', '#7a1f2b', '#1f5a45', '#1d4f5a', '#8c3a55', '#5a3218', '#2e3440'];
 
-export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void } = {}): HTMLElement {
-  let mode: 'page' | 'theme' = 'page';
+export interface PanelOpts { mode: 'page' | 'theme'; preset?: string; categoryId?: string; onDone?: (b: BookMeta) => void }
+
+export function ideaPanel(o: PanelOpts): HTMLElement {
+  const mode = o.mode;
   let level: Level = 2;
   let cover = COVERS[Math.floor(Math.random() * COVERS.length)];
   let ctl: AbortController | null = null;
 
-  const text = h('textarea', { class: 'field idea__text', rows: 3, maxlength: 400, dir: 'auto', placeholder: 'מה היית רוצה שאצייר? למשל: ארנב קוסם בתוך ספר פתוח, עם כוכבים מסביב' }) as HTMLTextAreaElement;
-  const tabs = h('div', { class: 'seg', role: 'tablist' });
-  const tabPage = h('button', { class: 'seg__btn is-on', type: 'button', role: 'tab', 'aria-selected': 'true' }, 'דף אחד');
-  const tabTheme = h('button', { class: 'seg__btn', type: 'button', role: 'tab', 'aria-selected': 'false' }, 'חוברת שלמה מנושא');
-  tabs.append(tabPage, tabTheme);
+  const text = h('textarea', { class: 'field idea__text', rows: 3, maxlength: 400, dir: 'auto',
+    placeholder: mode === 'page' ? 'מה היית רוצה שאצייר? למשל: ארנב קוסם בתוך ספר פתוח, עם כוכבים מסביב' : 'נושא לחוברת במשפט אחד, למשל: פירות הדר בתפקיד שוליית המכשף' }) as HTMLTextAreaElement;
+  if (o.preset) text.value = o.preset;
 
   const levels = h('div', { class: 'seg seg--small', role: 'radiogroup', 'aria-label': 'רמת קושי' });
   for (const l of [1, 2, 3] as Level[]) {
@@ -37,9 +37,10 @@ export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void 
   const count = h('input', { type: 'range', class: 'slider', min: 3, max: 16, value: 8, id: 'idea-count', 'aria-label': 'מספר עמודים' }) as HTMLInputElement;
   const countOut = h('output', { for: 'idea-count' }, '8');
   count.addEventListener('input', () => { countOut.textContent = count.value; });
-  const countRow = h('div', { class: 'idea__row', hidden: true }, h('label', { for: 'idea-count' }, 'עמודים בחוברת ', countOut), count);
 
-  const target = h('select', { class: 'field', id: 'idea-target' }, h('option', { value: '' }, '✨ חוברת חדשה')) as HTMLSelectElement;
+  // where it goes: a category, then a new book or one of that category's books
+  const catSel = h('select', { class: 'field', id: 'idea-cat' }) as HTMLSelectElement;
+  const target = h('select', { class: 'field', id: 'idea-target', hidden: mode === 'theme' }, h('option', { value: '' }, '✨ חוברת חדשה')) as HTMLSelectElement;
   const bookTitle = h('input', { class: 'field', id: 'idea-title', placeholder: 'שם החוברת החדשה', maxlength: 60, dir: 'auto' }) as HTMLInputElement;
   const wheel = h('input', { type: 'color', class: 'idea__wheel', value: cover, 'aria-label': 'צבע כריכה מגלגל הצבעים' }) as HTMLInputElement;
   const swatches = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'צבע כריכה' });
@@ -54,40 +55,47 @@ export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void 
   paintSw();
   const newBook = h('div', { class: 'idea__new' }, h('label', { for: 'idea-title' }, 'שם וצבע הכריכה'), bookTitle, swatches);
   target.addEventListener('change', () => { newBook.hidden = !!target.value; });
-  void store.books().then((bs) => {
-    for (const b of bs.filter((x) => x.madeWithClaude)) target.append(h('option', { value: b.id }, `הוספה ל: ${b.title}`));
-  });
+  let allBooks: BookMeta[] = [];
+  const fillBooks = () => {
+    target.replaceChildren(h('option', { value: '' }, '✨ חוברת חדשה'));
+    for (const b of allBooks.filter((x) => x.categoryId === catSel.value)) target.append(h('option', { value: b.id }, `הוספה ל: ${b.title}`));
+    newBook.hidden = !!target.value;
+  };
+  catSel.addEventListener('change', fillBooks);
+  void (async () => {
+    const cats = await store.categories();
+    allBooks = await store.books();
+    for (const c of cats) catSel.append(h('option', { value: c.id }, `${c.icon} ${c.name}`));
+    catSel.value = o.categoryId && cats.some((c) => c.id === o.categoryId) ? o.categoryId : 'cat-claude';
+    fillBooks();
+  })();
 
   const status = h('p', { class: 'idea__status', role: 'status' });
-  const go1 = h('button', { class: 'btn btn--gold', type: 'button' }, '✨ צור דף');
+  const go1 = h('button', { class: 'btn btn--gold', type: 'button' }, mode === 'page' ? '✨ צור דף' : '✨ הצע שמות לעמודים');
   const surpriseBtn = h('button', { class: 'btn', type: 'button' }, '🎲 הפתע אותי');
   const cancel = h('button', { class: 'btn btn--ghost', type: 'button', hidden: true }, 'עצירה');
   const titlesBox = h('div', { class: 'idea__titles', hidden: true });
   const histBox = h('div', { class: 'idea__hist' });
 
-  const setMode = (m: typeof mode) => {
-    mode = m;
-    tabPage.classList.toggle('is-on', m === 'page'); tabPage.setAttribute('aria-selected', String(m === 'page'));
-    tabTheme.classList.toggle('is-on', m === 'theme'); tabTheme.setAttribute('aria-selected', String(m === 'theme'));
-    countRow.hidden = m !== 'theme';
-    titlesBox.hidden = true;
-    go1.textContent = m === 'page' ? '✨ צור דף' : '✨ הצע שמות לעמודים';
-    text.placeholder = m === 'page' ? 'מה היית רוצה שאצייר? למשל: ארנב קוסם בתוך ספר פתוח, עם כוכבים מסביב' : 'נושא לחוברת במשפט אחד, למשל: פירות הדר בתפקיד שוליית המכשף';
-  };
-  tabPage.addEventListener('click', () => setMode('page'));
-  tabTheme.addEventListener('click', () => setMode('theme'));
-  surpriseBtn.addEventListener('click', () => { text.value = mode === 'theme' ? surpriseTheme() : surprise(); text.focus(); });
+  surpriseBtn.addEventListener('click', async () => {
+    surpriseBtn.disabled = true; const was = surpriseBtn.textContent; surpriseBtn.textContent = '🎲 חושבת…';
+    try {
+      const [idea] = await freshIdeas(mode, 1, [text.value, ...history.all().map((x) => x.text)]);
+      text.value = idea ?? (mode === 'theme' ? surpriseTheme() : surprise());
+    } catch { text.value = mode === 'theme' ? surpriseTheme() : surprise(); }
+    surpriseBtn.disabled = false; surpriseBtn.textContent = was; text.focus();
+  });
 
   const renderHist = () => {
-    const list = history.all();
+    const list = history.all().filter((x) => x.kind === mode);
     histBox.replaceChildren();
     if (!list.length) return;
     histBox.append(h('h3', { class: 'idea__h' }, 'הרעיונות שלי (הקשה לעריכה ושליחה מחדש)'));
     for (const it of list.slice(0, 20)) {
       const chip = h('div', { class: 'hist-chip' },
-        h('button', { class: 'hist-chip__text', type: 'button', dir: 'auto', title: 'עריכה ושליחה מחדש' }, (it.kind === 'theme' ? '📚 ' : '🖍️ ') + it.text),
+        h('button', { class: 'hist-chip__text', type: 'button', dir: 'auto', title: 'עריכה ושליחה מחדש' }, it.text),
         h('button', { class: 'hist-chip__x', type: 'button', 'aria-label': 'מחיקה מההיסטוריה' }, '×'));
-      chip.firstElementChild!.addEventListener('click', () => { setMode(it.kind); text.value = it.text; text.focus(); text.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+      chip.firstElementChild!.addEventListener('click', () => { text.value = it.text; text.focus(); text.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
       chip.lastElementChild!.addEventListener('click', () => { history.remove(it.id); renderHist(); });
       histBox.append(chip);
     }
@@ -98,7 +106,7 @@ export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void 
   cancel.addEventListener('click', () => ctl?.abort());
 
   const finish = async (pages: PageRec[], fallbackTitle: string) => {
-    const book = await savePages(target.value ? { bookId: target.value } : { title: bookTitle.value.trim() || fallbackTitle, coverColor: cover, categoryId: 'cat-claude' }, pages);
+    const book = await savePages(target.value ? { bookId: target.value } : { title: bookTitle.value.trim() || fallbackTitle, coverColor: cover, categoryId: catSel.value || 'cat-claude' }, pages);
     const r = go1.getBoundingClientRect(); sparkle(r.left + r.width / 2, r.top, 60, 7);
     toast(`נוסף ל"${book.title}" ✨`);
     o.onDone?.(book);
@@ -164,30 +172,81 @@ export function ideaPanel(o: { inline?: boolean; onDone?: (b: BookMeta) => void 
     finally { busy(false); ctl = null; }
   });
 
-  return h('div', { class: 'idea' + (o.inline ? ' idea--inline' : '') },
-    tabs, text,
+  return h('div', { class: 'idea' },
+    text,
     h('div', { class: 'idea__actions' }, go1, surpriseBtn, cancel),
     status, titlesBox,
-    h('details', { class: 'idea__more' }, h('summary', {}, 'רמת קושי, צבעים ויעד'),
+    h('div', { class: 'idea__where' },
+      h('label', { for: 'idea-cat', class: 'set-label' }, mode === 'page' ? 'לאיזו קטגוריה לשייך?' : 'באיזו קטגוריה לשים את החוברת?'), catSel,
+      mode === 'page' ? h('label', { for: 'idea-target', class: 'set-label' }, 'לאיזו חוברת?') : null, target, newBook),
+    h('details', { class: 'idea__more' }, h('summary', {}, 'רמת קושי ומספר צבעים'),
       h('div', { class: 'idea__opts' },
         h('label', {}, 'רמת קושי'), levels,
         h('div', { class: 'idea__row' }, h('label', { for: 'idea-colors' }, 'מספר צבעים ', colorsOut), colors),
-        countRow,
-        h('label', { for: 'idea-target' }, 'לאן להוסיף'), target, newBook)),
+        mode === 'theme' ? h('div', { class: 'idea__row' }, h('label', { for: 'idea-count' }, 'עמודים בחוברת ', countOut), count) : null)),
     histBox);
 }
 
-export function openIdeas(): void {
-  let close = () => {};
-  const panel = ideaPanel({
-    onDone: async () => {
-      close();
-      const cat = (await store.categories()).find((c) => c.id === 'cat-claude');
-      if (cat) { const { shelfScreen } = await import('../screens/shelf'); go((r) => shelfScreen(r, cat), 'forward'); }
-    },
-  });
-  close = sheet('✨ רעיון לצביעה', panel);
+/** "רעיון לצביעה": a handful of ready ideas; tap one to draw it. */
+function ideaList(onPick: (idea: string, kind: 'page' | 'theme') => void): HTMLElement {
+  const box = h('div', { class: 'ideas-list' });
+  const status = h('p', { class: 'idea__status', role: 'status' });
+  const more = h('button', { class: 'btn', type: 'button' }, '🎲 עוד רעיונות');
+  const shown: string[] = [];
+  const load = async () => {
+    more.disabled = true; status.textContent = 'קלוד ממציא רעיונות…';
+    box.replaceChildren(...Array.from({ length: 6 }, () => h('div', { class: 'idea-pick idea-pick--wait' })));
+    const [pages, themes] = await Promise.all([freshIdeas('page', 6, shown), freshIdeas('theme', 2, shown)]);
+    box.replaceChildren();
+    for (const [list, kind] of [[pages, 'page'], [themes, 'theme']] as const) for (const t of list) {
+      shown.push(t);
+      const b = h('button', { class: 'idea-pick', type: 'button', dir: 'auto' },
+        h('span', { class: 'idea-pick__kind' }, kind === 'page' ? '🖍️ דף' : '📚 חוברת'), h('span', {}, t));
+      b.addEventListener('click', () => onPick(t, kind));
+      box.append(b);
+    }
+    status.textContent = ''; more.disabled = false;
+  };
+  more.addEventListener('click', () => void load());
+  void load();
+  return h('div', { class: 'idea' }, h('p', { class: 'set-label' }, 'בחרי רעיון, ואפשר לערוך אותו לפני שמציירים.'), status, box, h('div', { class: 'idea__actions' }, more));
 }
+
+/** "✨ צור חוברת צביעה": choose a single page, a whole themed book, or a ready idea. */
+export function openCreator(o: { categoryId?: string; onDone?: (b: BookMeta) => void } = {}): void {
+  const body = h('div', { class: 'creator' });
+  let close = () => {};
+  const done = async (b: BookMeta) => {
+    close();
+    if (o.onDone) { o.onDone(b); return; }
+    const cat = (await store.categories()).find((c) => c.id === b.categoryId);
+    if (cat) { const { shelfScreen } = await import('../screens/shelf'); go((r) => shelfScreen(r, cat), 'forward'); }
+  };
+  const back = h('button', { class: 'btn btn--ghost creator__back', type: 'button' }, '→ חזרה לבחירה');
+  const show = (mode: 'page' | 'theme' | 'ideas', preset?: string) => {
+    const inner = mode === 'ideas'
+      ? ideaList((idea, kind) => show(kind, idea))
+      : ideaPanel({ mode, preset, categoryId: o.categoryId, onDone: (b) => void done(b) });
+    const head = h('h3', { class: 'creator__h' }, mode === 'page' ? '🖍️ דף אחד' : mode === 'theme' ? '📚 חוברת שלמה מנושא' : '🌟 רעיון לצביעה');
+    body.replaceChildren(h('div', { class: 'creator__top' }, back, head), inner);
+  };
+  const menu = () => {
+    const card = (icon: string, t: string, sub: string, m: 'page' | 'theme' | 'ideas') => {
+      const b = h('button', { class: 'creator__opt', type: 'button' }, h('span', { class: 'creator__icon', 'aria-hidden': 'true' }, icon), h('span', { class: 'creator__t' }, t), h('span', { class: 'creator__sub' }, sub));
+      b.addEventListener('click', () => show(m));
+      return b;
+    };
+    body.replaceChildren(h('div', { class: 'creator__menu' },
+      card('🖍️', 'דף אחד', 'ציור אחד, לחוברת חדשה או קיימת, בכל קטגוריה', 'page'),
+      card('📚', 'חוברת שלמה מנושא', 'משפט אחד, וכל עמוד הוא וריאציה עליו', 'theme'),
+      card('🌟', 'רעיון לצביעה', 'קלוד מציע כמה רעיונות, ואת בוחרת', 'ideas')));
+  };
+  back.addEventListener('click', menu);
+  menu();
+  close = sheet('✨ צור חוברת צביעה', body);
+}
+
+export function openIdeas(): void { openCreator(); }
 
 /** The floating "✨ רעיון לצביעה" button: on every screen, draggable, remembers where it was left. */
 export function mountIdeaFab(): void {
@@ -197,7 +256,7 @@ export function mountIdeaFab(): void {
   let pos: { x: number; y: number } | null = null;
   try { pos = JSON.parse(localStorage.getItem('mcb.fabPos') ?? 'null'); } catch { pos = null; }
   const place = () => {
-    if (!pos) { fab.style.left = '16px'; fab.style.top = ''; fab.style.bottom = 'max(16px, env(safe-area-inset-bottom))'; return; }
+    if (!pos) { fab.style.left = 'calc(max(16px, env(safe-area-inset-left)) + 66px)'; fab.style.top = ''; fab.style.bottom = 'max(16px, env(safe-area-inset-bottom))'; return; }
     const r = fab.getBoundingClientRect();
     fab.style.left = Math.max(6, Math.min(innerWidth - r.width - 6, pos.x * innerWidth)) + 'px';
     fab.style.top = Math.max(6, Math.min(innerHeight - r.height - 6, pos.y * innerHeight)) + 'px';

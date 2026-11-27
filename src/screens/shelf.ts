@@ -1,11 +1,12 @@
 /** Bookshelf: books stand on wooden shelves. Tap opens, long press edits. */
+import { BOOKS_CHANGED } from '../app/jobs';
 import { go } from '../app/app';
 import { store } from '../app/store';
 import type { BookMeta, Category } from '../app/types';
 import { importFiles } from '../app/importer';
 import { shareBook } from '../app/share';
 import { appBar } from '../ui/appbar';
-import { ideaPanel } from '../ui/ideas';
+import { openCreator } from '../ui/ideas';
 import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { coverFace, coverUrl, spineFace } from '../ui/cover';
 import { categoriesScreen } from './categories';
@@ -39,9 +40,8 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
 
   el.append(h('main', { class: 'shelf-screen' },
     appBar({ title: `${cat.icon} ${cat.name}`, back: { label: 'חזרה לספרייה', to: () => go(categoriesScreen, 'back') }, end: [importBtn] }),
-    cat.role === 'claude' ? h('details', { class: 'set-card idea-card', open: true },
-      h('summary', { class: 'idea-card__sum' }, '✨ מה היית רוצה שאצור?'),
-      ideaPanel({ inline: true, onDone: () => void render() })) : null,
+    cat.role === 'claude' ? h('div', { class: 'create-row' },
+      h('button', { class: 'btn btn--gold create-row__btn', type: 'button', onclick: () => openCreator({ categoryId: cat.id, onDone: () => void render() }) }, '✨ צור חוברת צביעה')) : null,
     shelves, fileInput));
 
   const render = async () => {
@@ -127,6 +127,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
   let rt = 0;
   const debounced = () => { clearTimeout(rt); rt = window.setTimeout(onResize, 200); };
   addEventListener('resize', debounced);
+  addEventListener(BOOKS_CHANGED, onResize);
   void render();
-  return () => removeEventListener('resize', debounced);
+  return () => { removeEventListener('resize', debounced); removeEventListener(BOOKS_CHANGED, onResize); };
 }

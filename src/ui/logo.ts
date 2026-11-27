@@ -41,7 +41,7 @@ export function logoMark(size = 220): string {
   <path d="M120 176 C 144 160, 182 158, 218 166 L 218 88 C 184 78, 146 80, 120 96 Z" fill="url(#lg-pageR)" stroke="#cfb07a" stroke-width="1.2"/>
   <path d="M120 96 L 120 176" stroke="#c9a36a" stroke-width="1.4" opacity=".7"/>
   <!-- a little castle to colour by numbers on the left page -->
-  <g transform="translate(71 138) scale(.78) translate(-72 -118)">
+  <g transform="translate(71 125) scale(.78) translate(-72 -118)">
   <g stroke="#3b2a1e" stroke-width="1.5" stroke-linejoin="round" fill="none">
     <path d="M64 104 L72 86 L80 104 Z" fill="#f7a8c4"/>
     <rect x="65" y="104" width="14" height="44" fill="#fff"/>

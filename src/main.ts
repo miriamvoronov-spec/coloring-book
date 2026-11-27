@@ -1,8 +1,9 @@
+import { mountJobsPill } from './ui/jobs';
 import './styles/base.css';
 import { initApp, go, whenSeeded } from './app/app';
 import { splashScreen } from './screens/splash';
 import { applySettings } from './app/settings';
-import { mountIdeaFab } from './ui/ideas';
+
 import { mountPlayer } from './ui/player';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -15,5 +16,5 @@ applySettings();
 initApp(app);
 void whenSeeded().then(async () => { const { loadSampleBooks } = await import('./app/samples'); await loadSampleBooks(); });
 go(splashScreen, 'fade');
-mountIdeaFab();
 mountPlayer();
+mountJobsPill();

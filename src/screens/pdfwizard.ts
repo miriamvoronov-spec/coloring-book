@@ -5,7 +5,7 @@
 import { addCategory, go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
-import { guessKind, importPdfBook, KIND_HE, openPdf, renderPage, type PdfDoc, type PdfKind } from '../app/pdfimport';
+import { guessKind, KIND_HE, openPdf, renderPage, type PdfDoc, type PdfKind } from '../app/pdfimport';
 import { appBar } from '../ui/appbar';
 import { h, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
@@ -72,7 +72,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
       doc = await openPdf(file);
     } catch (e) { status.textContent = e instanceof Error ? e.message : 'לא הצלחתי לפתוח את הקובץ'; return; }
     const n = doc.numPages;
-    kinds = new Array(n).fill('skip');
+    kinds = new Array(n).fill('coloring'); kinds[0] = 'cover'; if (n > 1) kinds[n - 1] = 'back';
     status.textContent = `${n} עמודים. מכינה תמונות קטנות…`;
     const tiles: HTMLButtonElement[] = [];
     for (let i = 0; i < n; i++) {
@@ -90,7 +90,7 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
         kinds[i] = guessKind(i, n, c);
         c.className = 'wiz__img';
         tiles[i].querySelector('.wiz__thumb')!.replaceChildren(c);
-      } catch (e) { console.error(e); kinds[i] = 'skip'; }
+      } catch (e) { console.error(e); }
       paintTile(tiles[i], kinds[i]);
       setBar((i + 1) / n); refreshCounts();
       if (i === 0) go1.disabled = false;
@@ -110,18 +110,11 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
     if (!kinds.includes('coloring')) { toast('סמני לפחות דף צביעה אחד'); return; }
     stop = true;
     go1.disabled = true;
-    grid.classList.add('wiz__grid--busy');
-    try {
-      const book = await importPdfBook(doc, { title: title.value.trim() || 'חוברת חדשה', category: cat, direction: dir.value as 'rtl' | 'ltr', kinds },
-        (m, f) => { status.textContent = m; setBar(f); }, abort.signal);
-      toast(`"${book.title}" נוספה למדף ✨`);
-      const c = cat;
-      leave(() => go((r) => shelfScreen(r, c), 'forward'));
-    } catch (e) {
-      console.error(e);
-      status.textContent = e instanceof Error ? e.message : 'הייבוא נכשל';
-      go1.disabled = false;
-    }
+    const { startPdfJob } = await import('../app/jobs');
+    startPdfJob(doc, { title: title.value.trim() || 'חוברת חדשה', category: cat, direction: dir.value as 'rtl' | 'ltr', kinds });
+    doc = null; // the background job owns it now
+    toast('החוברת נוספת ברקע. אפשר להמשיך לצבוע ✨');
+    go(categoriesScreen, 'forward');
   });
 
   return () => { stop = true; };

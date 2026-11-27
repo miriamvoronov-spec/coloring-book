@@ -42,5 +42,4 @@ export function mountPlayer(): void {
   music.subscribe(() => void paint());
   void paint();
   resumeOnFirstTap();
-  new MutationObserver(() => el.classList.toggle('player--reader', !!document.querySelector('.reader'))).observe(document.getElementById('app')!, { childList: true });
 }

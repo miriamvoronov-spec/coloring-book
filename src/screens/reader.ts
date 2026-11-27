@@ -68,8 +68,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader' },
     h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, shareBtn, solutionBtn, modeBtn, homeBtn)),
-    main);
-  // colours are chosen from the colour button in the tool bar (legend, wheel, recent); no strip under the page
+    main, legend);
+  // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);
 
   // ----- layout -----
@@ -241,16 +241,6 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     toolbar?.update();
   }
 
-  /** Full palette that is always at hand, next to the page's legend. */
-  const BASIC = [
-    '#000000', '#4a4a4a', '#8c8c8c', '#d0d0d0', '#ffffff',
-    '#7f1d1d', '#d62828', '#ef476f', '#ff8fab', '#ffc2d1',
-    '#9a3412', '#f77f00', '#ff9f1c', '#fcbf49', '#ffe066',
-    '#fff3b0', '#606c38', '#3a9d5d', '#80b918', '#b5e48c',
-    '#2a9d8f', '#83e3d9', '#03045e', '#1d4ed8', '#4895ef',
-    '#8fd3f4', '#3c096c', '#7b2cbf', '#c77dff', '#e0aaff',
-    '#5a3218', '#a0522d', '#d4a373', '#f1d3b3', '#e9c46a',
-  ];
   function chip(hex: string, label?: string) {
     const b = h('button', { class: 'legend__chip' + (label ? '' : ' legend__chip--plain'), type: 'button', 'aria-label': label ? `צבע מספר ${label}` : hex, title: hex, 'data-c': hex.toLowerCase() },
       h('span', { class: 'legend__dot' }), label ? h('span', { class: 'legend__num' }, label) : null);
@@ -261,16 +251,9 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   function renderLegend() {
     legend.replaceChildren();
     const page = surface?.page;
-    legend.hidden = !page;
+    legend.hidden = !page || !page.legend.length;
     if (!page) return;
     for (const e of page.legend) legend.append(chip(e.color, e.label));
-    const recent = prefs.get<string[]>('recent', []).filter((c) => !page.legend.some((e) => e.color.toLowerCase() === c.toLowerCase()));
-    if (page.legend.length) legend.append(h('span', { class: 'legend__sep', 'aria-hidden': 'true' }));
-    if (recent.length) {
-      for (const c of recent.slice(0, 6)) legend.append(chip(c));
-      legend.append(h('span', { class: 'legend__sep', 'aria-hidden': 'true' }));
-    }
-    for (const c of BASIC) legend.append(chip(c));
     markLegend();
   }
   const markLegend = () => legend.querySelectorAll<HTMLElement>('.legend__chip').forEach((c) => c.classList.toggle('is-on', c.dataset.c === state.color.toLowerCase()));
