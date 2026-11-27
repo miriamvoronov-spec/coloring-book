@@ -41,7 +41,8 @@ export class SpreadView {
       h('div', { class: 'tome__board', 'aria-hidden': 'true' }),
       this.edges.first, this.edges.second,
       this.sides.first, this.sides.second,
-      h('div', { class: 'tome__spine', 'aria-hidden': 'true' }));
+      h('div', { class: 'tome__spine', 'aria-hidden': 'true' }),
+      h('div', { class: 'tome__ribbon', 'aria-hidden': 'true' }));
     this.tome.style.setProperty('--cover', coverColor);
     this.el = h('div', { class: 'spreadview' }, this.tome);
 

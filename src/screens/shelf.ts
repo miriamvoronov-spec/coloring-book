@@ -38,6 +38,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     try {
       const book = await importFiles(files, cat, (msg) => { status.querySelector('p')!.textContent = msg; });
       toast(`"${book.title}" נוספה למדף`);
+      void import('./friends').then((m) => m.askToShare(book));
       await render();
     } catch (e) {
       console.error(e);
@@ -113,7 +114,8 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     const cur = h('input', { type: 'checkbox', id: 'book-cur', checked: !!b.current }) as HTMLInputElement;
     const tune = h('input', { type: 'checkbox', id: 'book-tune', checked: b.music !== false }) as HTMLInputElement;
     const save = h('button', { class: 'btn btn--gold', type: 'button' }, 'שמירה');
-    const share = h('button', { class: 'btn', type: 'button' }, 'שיתוף');
+    const share = h('button', { class: 'btn', type: 'button' }, 'שיתוף כקובץ');
+    const shareF = h('button', { class: 'btn', type: 'button' }, '👭 שיתוף עם חברות');
     const del = h('button', { class: 'btn btn--danger', type: 'button' }, 'מחיקה');
     const body = h('div', { class: 'form' },
       h('label', { for: 'book-name' }, 'שם החוברת'), name,
@@ -124,13 +126,14 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
         h('label', { class: 'check' }, fav, h('span', {}, '❤️ ברשימת החוברות האהובות')),
         h('label', { class: 'check' }, cur, h('span', {}, '📖 ברשימת החוברות הנוכחיות')),
         b.madeWithClaude ? h('label', { class: 'check' }, tune, h('span', {}, '🎵 מנגינה משלה כשהחוברת פתוחה')) : null),
-      h('div', { class: 'form__actions' }, save, share, del));
+      h('div', { class: 'form__actions' }, save, shareF, share, del));
     const close = sheet('עריכת חוברת', body);
     save.addEventListener('click', async () => {
       await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId, favorite: fav.checked, current: cur.checked, ...(b.madeWithClaude ? { music: tune.checked } : {}) });
       close(); await refresh();
     });
     share.addEventListener('click', () => { close(); void shareBook(b); });
+    shareF.addEventListener('click', async () => { close(); const { shareWithFriends } = await import('./friends'); await shareWithFriends(b); });
     let armed = false;
     del.addEventListener('click', async () => {
       if (!armed) { armed = true; del.textContent = 'ללחוץ שוב כדי למחוק לתמיד'; return; }

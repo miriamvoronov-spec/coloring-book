@@ -16,6 +16,7 @@ document.documentElement.dir = 'rtl';
 applySettings();
 initApp(app);
 void whenSeeded().then(async () => { const { loadSampleBooks } = await import('./app/samples'); await loadSampleBooks(); });
-go(splashScreen, 'fade');
+if (/[#&](join|access_token)=|[?&]code=/.test(location.hash + location.search)) void import('./screens/friends').then((m) => go(m.friendsScreen, 'fade'));
+else go(splashScreen, 'fade');
 mountPlayer();
 mountJobsPill();

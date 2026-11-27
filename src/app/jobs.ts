@@ -34,6 +34,7 @@ export function startJob(title: string, categoryId: string, run: (progress: (m: 
   }, job.ctl.signal).then((book) => {
     job.state = 'done'; job.book = book; job.frac = 1; job.msg = 'נוספה למדף ✨';
     dispatchEvent(new CustomEvent(BOOKS_CHANGED));
+    void import('../screens/friends').then((m) => m.askToShare(book)).catch(() => {});
   }).catch((e) => {
     console.error(e);
     job.state = 'error'; job.msg = job.ctl.signal.aborted ? 'בוטל' : e instanceof Error ? e.message : 'נכשל';

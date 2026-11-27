@@ -9,6 +9,7 @@ import { logoMark } from '../ui/logo';
 import { appBar } from '../ui/appbar';
 import { dailyLine, greeting, greetingIcon, settings } from '../app/settings';
 import { shelfScreen, FAV_SHELF, CUR_SHELF } from './shelf';
+import { openCabinet } from '../ui/cabinet';
 
 const ICONS = ['✨', '🏰', '🧚', '🦄', '🌸', '🐉', '🌙', '⭐', '🎨', '🍄', '🐚', '🦋', '🌈', '👑', '🪄', '📚'];
 
@@ -81,7 +82,7 @@ export function categoriesScreen(el: HTMLElement) {
       const cats = await store.categories();
       const cat = cats.find((c) => c.id === 'cat-imported') ?? cats[0];
       const { importFiles } = await import('../app/importer');
-      try { const b = await importFiles([cb], cat, () => {}); toast(`"${b.title}" נוספה למדף ${cat.name}`); dispatchEvent(new CustomEvent(BOOKS_CHANGED)); }
+      try { const b = await importFiles([cb], cat, () => {}); toast(`"${b.title}" נוספה למדף ${cat.name}`); dispatchEvent(new CustomEvent(BOOKS_CHANGED)); void import('./friends').then((m) => m.askToShare(b)); }
       catch (e) { toast(e instanceof Error ? e.message : 'הייבוא נכשל'); }
       return;
     }
@@ -89,10 +90,11 @@ export function categoriesScreen(el: HTMLElement) {
     pdfWizard(fs);
   });
   const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF, תמונות או .colorbook)');
+  const friendsBtn = h('button', { class: 'btn appbar__add', type: 'button', title: 'חברות, קבוצות וחוברות משותפות', onclick: async () => { const { friendsScreen } = await import('./friends'); go(friendsScreen, 'forward'); } }, '👭 חברות וקבוצות');
   const [jobs, offJobs] = jobsBox();
   const lists = h('div', { class: 'lists-row' });
   el.append(h('main', { class: 'categories' },
-    appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [addPdf], home: 'splash' }), pick,
+    appBar({ title: h('div', { class: 'appbar__brand' }, h('span', { class: 'appbar__logo', html: logoMark(48) }), h('h1', { class: 'appbar__title' }, 'הספרייה שלי')), end: [friendsBtn, addPdf], home: 'splash' }), pick,
     !prefs.get('showGreeting', true) ? null : h('p', { class: 'greet' }, h('span', { class: 'greet__icon', 'aria-hidden': 'true' }, greetingIcon()), ' ', greeting(),
       settings().name ? '' : h('button', { class: 'greet__ask', type: 'button', onclick: async () => { const { settingsScreen } = await import('./settings'); go(settingsScreen, 'forward'); } }, 'איך קוראים לך?')),
     prefs.get('showLine', true) ? h('p', { class: 'greet__line' }, dailyLine()) : null,
@@ -116,7 +118,7 @@ export function categoriesScreen(el: HTMLElement) {
         h('span', { class: 'cat-card__icon', 'aria-hidden': 'true' }, c.icon),
         h('span', { class: 'cat-card__name', dir: 'auto' }, c.name),
         h('span', { class: 'cat-card__count' }, count === 1 ? 'חוברת אחת' : `${count} חוברות`));
-      card.addEventListener('click', () => go((r) => shelfScreen(r, c), 'forward'));
+      card.addEventListener('click', () => void openCabinet(c.name, c.icon, () => go((r) => shelfScreen(r, c), 'none')));
       onLongPress(card, () => editCategory(c, render));
       grid.append(card);
     }
