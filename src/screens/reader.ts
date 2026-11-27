@@ -17,6 +17,7 @@ import { endBookTheme, playBookTheme } from '../ui/music';
 import { shareBook, sharePage } from '../app/share';
 import { shelfScreen } from './shelf';
 import { SpreadView, type Leaf } from './spread';
+import { openReference, closeReference } from '../ui/reference';
 
 type Entry = { kind: 'cover' } | { kind: 'title' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
 
@@ -59,6 +60,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const title = h('h1', { class: 'reader__title', dir: 'auto' }, book.title);
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
+  const refBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'חלונית פתרון עם זום' }, h('span', {}, 'חלונית פתרון'));
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
@@ -73,7 +75,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader reader--browse' },
-    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, solutionBtn, modeBtn, homeBtn)),
+    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, refBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);
@@ -142,6 +144,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   /** Done colouring: back to the open book, on the spread with this page. */
   async function backToBook() {
     const entry = index;
+    hideSolution(); closeReference();
     setColoring(false);
     const s = surface; surface = null;
     await s?.destroy();
@@ -347,7 +350,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       const total = entries.filter((x) => x.kind === 'page').length;
       const k = shown[0] ? entries[shown[0].entry]?.kind : undefined;
       counter.textContent = nos.length ? `עמוד ${nos.join('–')} מתוך ${total}` : k === 'cover' ? 'כריכה' : k === 'back' ? 'כריכה אחורית' : k === 'title' ? 'פתיחה' : k === 'congrats' ? 'סוף החוברת' : '';
-      solutionBtn.hidden = true; modeBtn.hidden = true;
+      solutionBtn.hidden = true; refBtn.hidden = true; modeBtn.hidden = true;
       prevBtn.disabled = !spread || spread.index === 0;
       nextBtn.setAttribute('aria-label', spread?.atEnd ? 'סגירת החוברת' : 'העמוד הבא');
       return;
@@ -357,7 +360,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const total = entries.filter((x) => x.kind === 'page').length;
     counter.textContent = e.kind === 'cover' ? 'כריכה' : e.kind === 'title' ? 'פתיחה' : e.kind === 'back' ? 'כריכה אחורית' : e.kind === 'congrats' ? 'סוף החוברת' : `עמוד ${pageNo} מתוך ${total}`;
     const isPage = e.kind === 'page';
-    solutionBtn.hidden = !isPage;
+    solutionBtn.hidden = !isPage; refBtn.hidden = !isPage;
     modeBtn.hidden = !isPage && e.kind !== 'congrats';
     if (modeBtn.hidden && coloring) setColoring(false);
     prevBtn.disabled = index === 0;
@@ -471,33 +474,47 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       h('p', { class: 'menu__hint' }, 'הוספה, שכפול ומצבי מיזוג של שכבות יגיעו בשלב הבא'));
   }
 
-  async function openSolution() {
-    const s = surface;
-    if (!s?.engine || !s.page) return;
-    let sol: HTMLCanvasElement | HTMLImageElement | null = null;
-    let auto = false;
-    if (s.page.solution) {
-      sol = new Image(); sol.src = URL.createObjectURL(s.page.solution); sol.alt = 'פתרון';
-    } else {
-      sol = await s.engine.autoSolution(1400); auto = true;
-    }
-    if (!sol) { toast('בדף הזה אין מספרים ומקרא, אז אין ממה ליצור פתרון'); return; }
-    const mine = s.engine.snapshot(1400);
-    sol.classList.add('compare__img');
-    mine.classList.add('compare__img');
-    const top = h('div', { class: 'compare__top' }, sol);
-    const range = h('input', { type: 'range', class: 'slider compare__range', id: 'solution-split', min: 0, max: 100, value: 50, 'aria-label': 'חשיפת הפתרון' });
-    const handle = h('div', { class: 'compare__handle' });
-    const box = h('div', { class: 'compare', dir: 'ltr' }, mine, top, handle);
-    box.style.aspectRatio = `${s.page.width} / ${s.page.height}`;
-    const setSplit = () => { top.style.clipPath = `inset(0 0 0 ${range.value}%)`; handle.style.left = range.value + '%'; };
-    range.addEventListener('input', setSplit);
-    setSplit();
-    sheet(auto ? 'פתרון אוטומטי' : 'פתרון מהחוברת',
-      h('div', { class: 'solution' },
-        auto ? h('p', { class: 'badge' }, 'פתרון אוטומטי: נוצר מהמספרים ומהמקרא') : null,
-        box, range,
-        h('div', { class: 'solution__legend' }, h('span', {}, 'הדף שלי'), h('span', {}, 'הפתרון'))));
+  /** The solution picture for this page: the original from the back of the book, or one made from the numbers. */
+  async function solutionSrc(): Promise<{ src: string; auto: boolean } | null> {
+    const sf = surface;
+    if (!sf?.engine || !sf.page) return null;
+    if (sf.page.solution) return { src: blobUrl(sf.page.solution), auto: false };
+    const c = await sf.engine.autoSolution(1400);
+    return c ? { src: c.toDataURL('image/png'), auto: true } : null;
+  }
+
+  let solOver: HTMLElement | null = null;
+  /** Show the solution laid over the page, fading in; again to hide it. */
+  async function toggleSolution() {
+    if (solOver) { hideSolution(); return; }
+    const sol = await solutionSrc();
+    if (!sol) { toast('בדף הזה אין פתרון ואין מספרים ומקרא ליצור ממנו פתרון'); return; }
+    surface?.engine?.resetView();
+    const img = h('img', { src: sol.src, alt: 'פתרון' });
+    const op = h('input', { type: 'range', class: 'slider', min: 15, max: 100, value: 100, 'aria-label': 'שקיפות הפתרון' }) as HTMLInputElement;
+    const over = h('div', { class: 'sol-over' }, img);
+    const bar = h('div', { class: 'sol-bar' }, h('span', {}, sol.auto ? 'פתרון אוטומטי' : 'הפתרון מהחוברת'), op);
+    op.addEventListener('input', () => { over.style.opacity = String(Number(op.value) / 100); });
+    host.append(over, bar);
+    solOver = over;
+    (over as HTMLElement & { _bar?: HTMLElement })._bar = bar;
+    requestAnimationFrame(() => over.classList.add('is-on'));
+    solutionBtn.querySelector('span')!.textContent = 'הסתר פתרון';
+  }
+  function hideSolution() {
+    const o = solOver as (HTMLElement & { _bar?: HTMLElement }) | null;
+    if (!o) return;
+    solOver = null;
+    o._bar?.remove();
+    o.style.opacity = '';
+    o.classList.remove('is-on');
+    setTimeout(() => o.remove(), 450);
+    solutionBtn.querySelector('span')!.textContent = 'הצג פתרון';
+  }
+  async function openRef() {
+    const sol = await solutionSrc();
+    if (!sol) { toast('בדף הזה אין פתרון ואין מספרים ומקרא ליצור ממנו פתרון'); return; }
+    openReference(sol.src, sol.auto ? 'פתרון אוטומטי' : 'הפתרון מהחוברת');
   }
 
   // ----- wiring -----
@@ -509,7 +526,8 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   prevBtn.addEventListener('click', () => void flip(-1));
   nextBtn.addEventListener('click', () => void flip(1));
   modeBtn.addEventListener('click', () => { if (coloring) void backToBook(); else setColoring(true); });
-  solutionBtn.addEventListener('click', () => void openSolution());
+  solutionBtn.addEventListener('click', () => void toggleSolution());
+  refBtn.addEventListener('click', () => void openRef());
   gridBtn.addEventListener('click', () => void openGrid());
 
   /** Every page of the book at a glance; tap one to jump straight to it. */
@@ -607,6 +625,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     document.removeEventListener('visibilitychange', onHide);
     toolbar?.destroy();
     void surface?.destroy();
+    closeReference();
     setTimeout(() => leafUrls.forEach((u) => URL.revokeObjectURL(u)), 2000);
   };
 }

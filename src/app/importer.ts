@@ -112,7 +112,8 @@ async function coloringPage(bookId: string, blob: Blob, meta: ManifestPage, clea
   const ls = meta.size ? w / meta.size.width : s;
   const labels = (meta.labels ?? []).map((l) => ({ ...l, x: l.x * ls, y: l.y * ls, size: (l.size || 40) * ls }));
   return {
-    id: uid('p'), bookId, kind: 'coloring', width: w, height: h, image: await toBlob(c),
+    // an untouched page keeps its own (already small) file instead of a bigger re-encoded copy
+    id: uid('p'), bookId, kind: 'coloring', width: w, height: h, image: !clean && w === iw && h === ih && /png|jpe?g|webp/.test(blob.type) ? blob : await toBlob(c),
     labels, legend: meta.legend ?? [], numbersInImage: meta.numbersInImage ?? (meta.labels ? true : false),
     solution, title: meta.title,
   };

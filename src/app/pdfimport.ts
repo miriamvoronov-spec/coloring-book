@@ -4,6 +4,8 @@
  * so books of 1 GB and more work on a tablet. Each page is rendered,
  * classified (cover, coloring, solution, back), cleaned and stored one by one.
  */
+import { canvasToPalettePng } from './pngpal';
+import { restoreMargins, type MarginMode } from './margins';
 import { store, uid } from './store';
 import { MAX_SIDE } from './importer';
 import type { BookMeta, Category, LegendEntry, PageRec } from './types';
@@ -205,8 +207,8 @@ export function cleanScan(c: HTMLCanvasElement): void {
   ctx.globalCompositeOperation = 'source-over';
 }
 
-/** A scanned coloring page → clean black lines on white, key trimmed off. */
-async function coloringFromPdf(bookId: string, src: HTMLCanvasElement): Promise<PageRec> {
+/** A scanned coloring page → clean black lines on white, with its colour key kept under it. */
+async function coloringFromPdf(bookId: string, src: HTMLCanvasElement, margins: MarginMode = 'white', signal?: AbortSignal): Promise<PageRec> {
   const { legend, top } = findLegend(src);
   const h = legend.length ? top : src.height;
   const c = document.createElement('canvas');
@@ -215,7 +217,23 @@ async function coloringFromPdf(bookId: string, src: HTMLCanvasElement): Promise<
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
   ctx.drawImage(src, 0, 0);
   cleanScan(c);
-  return { id: uid('p'), bookId, kind: 'coloring', width: c.width, height: c.height, image: await toBlob(c), labels: [], legend, numbersInImage: true };
+  const keyBelow = legend.length > 0 && h < src.height;
+  const { canvas: art, dx } = await restoreMargins(c, margins, keyBelow ? ['bottom'] : [], signal);
+  let out = art;
+  if (keyBelow) {
+    // the colour squares stay on the page, on clean white paper
+    out = document.createElement('canvas');
+    out.width = art.width; out.height = art.height + (src.height - h);
+    const o = out.getContext('2d', { willReadFrequently: true })!;
+    o.fillStyle = '#fff'; o.fillRect(0, 0, out.width, out.height);
+    o.drawImage(src, 0, h, src.width, src.height - h, dx, art.height, src.width, src.height - h);
+    const strip = o.getImageData(0, art.height, out.width, out.height - art.height);
+    const d = strip.data;
+    for (let i = 0; i < d.length; i += 4) if (Math.min(d[i], d[i + 1], d[i + 2]) > 200) { d[i] = d[i + 1] = d[i + 2] = 255; }
+    o.putImageData(strip, 0, art.height);
+    o.drawImage(art, 0, 0);
+  }
+  return { id: uid('p'), bookId, kind: 'coloring', width: out.width, height: out.height, image: canvasToPalettePng(out), labels: [], legend, numbersInImage: true };
 }
 
 async function coverFromPdf(bookId: string, src: HTMLCanvasElement, kind: 'cover' | 'back'): Promise<PageRec> {
@@ -232,7 +250,7 @@ function edgeColor(c: HTMLCanvasElement): string {
   return rgbToHex(Math.round(r / n * 0.8), Math.round(g / n * 0.8), Math.round(b / n * 0.8));
 }
 
-export interface PdfBookPlan { title: string; category: Category; direction: 'rtl' | 'ltr'; kinds: PdfKind[] }
+export interface PdfBookPlan { title: string; category: Category; direction: 'rtl' | 'ltr'; kinds: PdfKind[]; margins?: MarginMode }
 
 /** Build and store the book page by page. */
 export async function importPdfBook(doc: PdfDoc, plan: PdfBookPlan, progress: (m: string, frac: number) => void, signal?: AbortSignal): Promise<BookMeta> {
@@ -251,7 +269,7 @@ export async function importPdfBook(doc: PdfDoc, plan: PdfBookPlan, progress: (m
       c.width = 0;
     } else {
       const c = await renderPage(doc, i + 1, MAX_SIDE);
-      pages.push(await coloringFromPdf(bookId, c));
+      pages.push(await coloringFromPdf(bookId, c, plan.margins ?? 'off', signal));
       c.width = 0;
     }
     await store.putPage(pages[pages.length - 1]);

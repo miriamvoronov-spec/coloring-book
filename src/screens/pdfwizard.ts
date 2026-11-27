@@ -2,6 +2,7 @@
  * Add a book from a PDF: name it, choose (or create) its category and reading
  * direction, check what each page is, then build it page by page.
  */
+import type { MarginMode } from '../app/margins';
 import { addCategory, go } from '../app/app';
 import { prefs, store } from '../app/store';
 import type { Category } from '../app/types';
@@ -35,6 +36,26 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
     h('option', { value: 'rtl' }, 'מימין לשמאל (עברית)'),
     h('option', { value: 'ltr' }, 'משמאל לימין (אנגלית, צרפתית)')) as HTMLSelectElement;
   dir.value = prefs.get('defaultDirection', 'rtl');
+  // pages photographed too tight: give them their margin back
+  const marg = h('select', { class: 'field', id: 'pdf-marg' },
+    h('option', { value: 'off' }, 'להשאיר כמו שהוא (מתאים לחוברות שהציור בהן עד הקצה)'),
+    h('option', { value: 'white' }, 'להוסיף שוליים לבנים איפה שהציור נחתך'),
+    h('option', { value: 'ai' }, 'להשלים את הקווים בשוליים בעזרת AI')) as HTMLSelectElement;
+  marg.value = prefs.get('marginMode', 'off');
+  const aiProv = h('select', { class: 'field', id: 'pdf-aiprov' },
+    h('option', { value: 'openai' }, 'OpenAI gpt-image'), h('option', { value: 'gemini' }, 'Google Gemini')) as HTMLSelectElement;
+  const aiKey = h('input', { class: 'field', type: 'password', id: 'pdf-aikey', autocomplete: 'off', placeholder: 'המפתח (API key)', dir: 'ltr' }) as HTMLInputElement;
+  const aiRow = h('div', {}, h('label', { for: 'pdf-aiprov', class: 'set-label' }, 'שירות ה-AI (המפתח נשמר רק במכשיר הזה)'), aiProv, aiKey);
+  const syncAi = () => {
+    const p = prefs.get<string>('imgProvider', 'claude');
+    aiProv.value = p === 'gemini' ? 'gemini' : 'openai';
+    aiKey.value = prefs.get('imgKey.' + aiProv.value, '');
+    aiRow.hidden = marg.value !== 'ai';
+  };
+  marg.addEventListener('change', () => { prefs.set('marginMode', marg.value); syncAi(); });
+  aiProv.addEventListener('change', () => { prefs.set('imgProvider', aiProv.value); aiKey.value = prefs.get('imgKey.' + aiProv.value, ''); });
+  aiKey.addEventListener('input', () => { prefs.set('imgProvider', aiProv.value); prefs.set('imgKey.' + aiProv.value, aiKey.value.trim()); });
+  syncAi();
   catSel.addEventListener('change', () => { newCat.hidden = catSel.value !== '__new'; if (!newCat.hidden) newCat.focus(); });
 
   const status = h('p', { class: 'wiz__status', role: 'status' }, `פותחת את הקובץ (${sizeHe(file.size)})…`);
@@ -55,7 +76,8 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
       h('section', { class: 'set-card wiz__form' },
         h('label', { for: 'pdf-title', class: 'set-label' }, 'שם החוברת'), title,
         h('label', { for: 'pdf-cat', class: 'set-label' }, 'קטגוריה'), catSel, newCat,
-        h('label', { for: 'pdf-dir', class: 'set-label' }, 'כיוון הדפדוף'), dir),
+        h('label', { for: 'pdf-dir', class: 'set-label' }, 'כיוון הדפדוף'), dir,
+        h('label', { for: 'pdf-marg', class: 'set-label' }, 'דפים שצולמו חתוכים'), marg, aiRow),
       h('section', { class: 'set-card' },
         h('h2', { class: 'set-card__title' }, 'מה יש בכל עמוד?'),
         h('p', { class: 'set-label' }, 'זיהיתי לבד מה כל עמוד. הקשה על עמוד מחליפה: דף צביעה, כריכה, כריכה אחורית, פתרון או דילוג. פתרונות לא נכנסים כדפי צביעה.'),
@@ -108,10 +130,11 @@ function wizardScreen(el: HTMLElement, file: File, preferred?: Category) {
     } else cat = (await store.categories()).find((c) => c.id === catSel.value);
     if (!cat) return;
     if (!kinds.includes('coloring')) { toast('סמני לפחות דף צביעה אחד'); return; }
+    if (marg.value === 'ai' && !aiKey.value.trim()) { toast('כדי להשלים בעזרת AI צריך מפתח של OpenAI או Gemini'); aiKey.focus(); return; }
     stop = true;
     go1.disabled = true;
     const { startPdfJob } = await import('../app/jobs');
-    startPdfJob(doc, { title: title.value.trim() || 'חוברת חדשה', category: cat, direction: dir.value as 'rtl' | 'ltr', kinds });
+    startPdfJob(doc, { title: title.value.trim() || 'חוברת חדשה', category: cat, direction: dir.value as 'rtl' | 'ltr', kinds, margins: marg.value as MarginMode });
     doc = null; // the background job owns it now
     toast('החוברת נוספת ברקע. אפשר להמשיך לצבוע ✨');
     go(categoriesScreen, 'forward');
