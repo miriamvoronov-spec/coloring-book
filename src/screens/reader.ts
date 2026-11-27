@@ -58,6 +58,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
+  const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'חזרה למדף', html: icons.back });
   const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'לספרייה', title: 'לספרייה', html: icons.home });
@@ -70,7 +71,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader' },
-    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, shareBtn, solutionBtn, modeBtn, homeBtn)),
+    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);
@@ -411,6 +412,48 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   nextBtn.addEventListener('click', () => void flip(1));
   modeBtn.addEventListener('click', () => setColoring(!coloring));
   solutionBtn.addEventListener('click', () => void openSolution());
+  gridBtn.addEventListener('click', () => void openGrid());
+
+  /** Every page of the book at a glance; tap one to jump straight to it. */
+  async function openGrid() {
+    if (busy) return;
+    if (coloring) setColoring(false);
+    const urls: string[] = [];
+    const url = (b: Blob) => { const u = URL.createObjectURL(b); urls.push(u); return u; };
+    const grid = h('div', { class: 'pgrid', role: 'list' });
+    let pageNo = 0;
+    const tiles = entries.map((e, i) => {
+      const art = h('div', { class: 'pgrid__art' });
+      let label = '';
+      if (e.kind === 'cover' || e.kind === 'back') {
+        label = e.kind === 'cover' ? 'כריכה' : 'כריכה אחורית';
+        void coverUrl(book, e.kind).then((u) => art.append(coverFace(book, u, e.kind as 'cover' | 'back')));
+      } else if (e.kind === 'title') {
+        label = 'פתיחה';
+        art.append(h('div', { class: 'pgrid__word' }, '📖'));
+      } else if (e.kind === 'congrats') {
+        label = 'כל הכבוד';
+        art.append(h('div', { class: 'pgrid__word' }, '✨'));
+      } else {
+        label = `עמוד ${++pageNo}`;
+        void (async () => {
+          const [pg, paint] = await Promise.all([store.page(e.id), store.paint(e.id)]);
+          if (!pg) return;
+          art.style.aspectRatio = `${pg.width} / ${pg.height}`;
+          if (paint?.color) art.append(h('img', { class: 'pgrid__paint', src: url(paint.color), alt: '', loading: 'lazy', decoding: 'async' }));
+          art.append(h('img', { class: 'pgrid__lines', src: url(pg.image), alt: '', loading: 'lazy', decoding: 'async' }));
+        })();
+      }
+      const tile = h('button', { class: 'pgrid__tile' + (i === index ? ' is-current' : ''), type: 'button', role: 'listitem', 'aria-label': label },
+        art, h('span', { class: 'pgrid__label' }, label));
+      tile.addEventListener('click', () => { close(); if (i !== index) void show(i, i > index ? 1 : -1); });
+      return tile;
+    });
+    grid.append(...tiles);
+    const close = sheet('כל הדפים', grid, () => setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), 400));
+    grid.closest('.sheet')?.classList.add('sheet--wide');
+    requestAnimationFrame(() => tiles[index]?.scrollIntoView({ block: 'center' }));
+  }
   shareBtn.addEventListener('click', () => {
     const s = surface;
     if (s?.engine && s.page && entries[index].kind === 'page') void sharePage(s.page, () => s.engine!.snapshot(3508));

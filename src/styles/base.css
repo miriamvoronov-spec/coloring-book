@@ -668,3 +668,17 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .spread .book3d__mark .logo-mark { width: 19cqh; }
 .spread .book3d__frame::before, .spread .book3d__frame::after { font-size: 3cqh; }
 .reader:not(.reader--color) .legend { display: none; }
+
+/* ----- all pages at a glance ----- */
+.sheet--wide .sheet__panel { width: min(1100px, 100vw - 24px); max-height: 88vh; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; overflow-y: auto; max-height: calc(88vh - 90px); padding: 4px 4px 12px; }
+.pgrid__tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 12px; background: transparent; border: 2px solid transparent; min-height: 44px; }
+.pgrid__tile:hover, .pgrid__tile:focus-visible { border-color: rgba(255,214,120,.5); }
+.pgrid__tile.is-current { border-color: #e9c46a; box-shadow: 0 0 14px rgba(233,196,106,.45); }
+.pgrid__art { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #fffdf7; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+.pgrid__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pgrid__lines { mix-blend-mode: multiply; }
+.pgrid__art > .cover { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pgrid__word { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.4rem; }
+.pgrid__label { font-size: .85rem; opacity: .85; }
+@media (max-width: 520px) { .pgrid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
