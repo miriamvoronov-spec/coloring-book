@@ -8,15 +8,25 @@ import type { LegendEntry } from '../app/types';
 
 let current: { close: () => void } | null = null;
 
-export function openPalette(entries: LegendEntry[], color: string, onPick: (hex: string) => void, onClose?: () => void): { close: () => void; mark: (hex: string) => void } {
+export interface PaletteHooks { onEdit: (label: string, hex: string) => void; onSample: (label: string) => void }
+
+export function openPalette(entries: LegendEntry[], color: string, onPick: (hex: string) => void, onClose?: () => void, hooks?: PaletteHooks): { close: () => void; mark: (hex: string) => void } {
   current?.close();
   const list = h('div', { class: 'palwin__list', role: 'listbox', 'aria-label': 'צבעי הדף' });
   const rows = entries.map((e) => {
     const hex = e.color.toUpperCase();
     const sw = h('span', { class: 'palwin__sw' }); sw.style.background = e.color;
-    const row = h('button', { class: 'palwin__row', type: 'button', role: 'option', 'data-c': e.color.toLowerCase(), 'aria-label': `${e.label}: ${hex}` },
+    const row = h('div', { class: 'palwin__row', role: 'option', tabindex: 0, 'data-c': e.color.toLowerCase(), 'aria-label': `${e.label}: ${hex}` },
       h('span', { class: 'palwin__label' }, e.label), sw, h('span', { class: 'palwin__hex', dir: 'ltr' }, hex));
+    if (hooks) {
+      const edit = h('button', { class: 'palwin__act', type: 'button', 'aria-label': `לשנות את הצבע של ${e.label}`, title: 'שינוי הצבע' }, '✏️');
+      edit.addEventListener('click', (ev) => { ev.stopPropagation(); hooks.onEdit(e.label, e.color); });
+      const drop = h('button', { class: 'palwin__act', type: 'button', 'aria-label': `לדגום צבע ל-${e.label}`, title: 'דגימה מהדף, מהרפרנס או מהפתרון' }, '💧');
+      drop.addEventListener('click', (ev) => { ev.stopPropagation(); hooks.onSample(e.label); });
+      row.append(edit, drop);
+    }
     row.addEventListener('click', () => { onPick(e.color); mark(e.color); });
+    row.addEventListener('keydown', (ev) => { if ((ev as KeyboardEvent).key === 'Enter') { onPick(e.color); mark(e.color); } });
     list.append(row);
     return row;
   });

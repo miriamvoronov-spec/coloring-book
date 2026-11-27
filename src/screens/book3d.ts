@@ -5,7 +5,6 @@ import { coverFace, coverUrl, shade, spineFace } from '../ui/cover';
 import { sparkle } from '../ui/sparkles';
 import { chime, paperFlip } from '../ui/sound';
 import { logoMark } from '../ui/logo';
-import { settings } from '../app/settings';
 
 function size() {
   const H = Math.min(innerHeight * 0.74, (innerWidth * 0.62) * 1.4);
@@ -18,14 +17,9 @@ function build(book: BookMeta, front: string | null, back: string | null) {
   const stage = h('div', { class: 'book3d-stage', 'aria-hidden': 'true' });
   const b = h('div', { class: 'book3d' + (rtl ? ' book3d--rtl' : '') });
   b.style.cssText = `width:${W}px;height:${H}px;margin-left:${-W / 2}px;margin-top:${-H / 2}px;--T:${T}px;--W:${W}px;--H:${H}px;--endpaper:${shade(book.coverColor, -0.06)};--cover:${book.coverColor}`;
-  const owner = settings().name.trim();
   const hinge = h('div', { class: 'book3d__front' },
     h('div', { class: 'book3d__out' }, coverFace(book, front)),
-    h('div', { class: 'book3d__in' },
-      h('div', { class: 'bookplate' },
-        h('div', { class: 'bookplate__star', 'aria-hidden': 'true' }, '✦'),
-        h('div', { class: 'bookplate__k' }, 'ספר זה שייך ל'),
-        h('div', { class: 'bookplate__name', dir: 'auto' }, owner || '✨'))));
+    h('div', { class: 'book3d__in' }));
   const page = h('div', { class: 'book3d__page' },
     h('div', { class: 'book3d__frame', 'aria-hidden': 'true' }),
     h('div', { class: 'book3d__titlepage' },

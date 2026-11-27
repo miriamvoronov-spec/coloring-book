@@ -7,7 +7,6 @@ import type { BookMeta, Category, PageRec } from '../app/types';
 import { PageEngine, type ToolState } from '../coloring/engine';
 import { Toolbar, enabledTools } from '../coloring/toolbar';
 import { colorPicker } from '../coloring/picker';
-import { hexToRgb } from '../app/raster';
 import { h, sheet, toast, reducedMotion } from '../ui/dom';
 import { coverFace, coverUrl, shade } from '../ui/cover';
 import { icons } from '../ui/icons';
@@ -19,7 +18,7 @@ import { endBookTheme, playBookTheme } from '../ui/music';
 import { shareBook, sharePage } from '../app/share';
 import { shelfScreen } from './shelf';
 import { SpreadView, type Leaf } from './spread';
-import { openReference, closeReference } from '../ui/reference';
+import { openReference, closeReference, setRefPicking, refOpen } from '../ui/reference';
 
 type Entry = { kind: 'cover' } | { kind: 'title' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
 
@@ -56,13 +55,17 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   let busy = false;
   let toolbar: Toolbar | null = null;
   let toolBeforePicker: ToolState['tool'] = 'marker';
-  const startPicker = () => { toolBeforePicker = state.tool === 'picker' ? 'marker' : state.tool; state.tool = 'picker'; toolbar?.closePop(); toolbar?.update(); toast('געי בדף כדי לדגום צבע'); };
+  const startPicker = () => {
+    toolBeforePicker = state.tool === 'picker' ? 'marker' : state.tool; state.tool = 'picker'; toolbar?.closePop(); toolbar?.update();
+    setRefPicking((hex) => finishPick(hex));
+    toast(refOpen() ? 'געי בדף או בחלונית הרפרנס כדי לדגום צבע' : 'געי בדף כדי לדגום צבע');
+  };
 
   // ----- DOM -----
   const title = h('h1', { class: 'reader__title', dir: 'auto' }, book.title);
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
-  const refBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'חלונית פתרון עם זום' }, h('span', {}, 'חלונית פתרון'));
+  const refBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'חלונית רפרנס צפה: הפתרון או תמונה משלך, עם זום' }, h('span', {}, 'חלונית רפרנס'));
   const palBtn = h('button', { class: 'pill', type: 'button', title: 'צבעי הדף מקוביות הצבע' }, h('span', {}, '🎨 צבעי הדף'));
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
@@ -218,9 +221,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     onSwipe: (d: 1 | -1) => void flip(d),
     onPenWhileReading: () => { setColoring(true); return true; },
     onPick: (hex: string | null) => {
-      state.tool = toolBeforePicker;
-      if (hex) { setColor(hex); const l = keepSample(hex); toast(l ? `הצבע נשמר בפלטה ליד ${l} 🎨` : 'הצבע נדגם ונשמר בפלטה'); } else { pickInto = null; toast('אין כאן צבע לדגום'); }
-      toolbar?.update();
+      finishPick(hex);
     },
     onLayers: () => renderLayers(),
     onLocked: () => toast('השכבה הזאת נעולה או מוסתרת. בחרי שכבה אחרת או פתחי את המנעול 🔓'),
@@ -384,21 +385,15 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     renderLegend();
   }
   const saveMyPal = () => { if (myPalPage) void store.setKv(palKey(myPalPage), myPal); };
-  const dist = (a: string, b: string) => { const [r1, g1, b1] = hexToRgb(a), [r2, g2, b2] = hexToRgb(b); return Math.hypot(r1 - r2, g1 - g2, b1 - b2); };
   /** A sampled colour goes to the slot of the square it came from (the nearest printed colour), or to the extras. */
   function keepSample(hex: string): string | null {
     const page = surface?.page;
     if (!page) return null;
-    let label: string | null = pickInto;
-    if (!label && page.legend.length) {
-      let best = Infinity;
-      for (const e of page.legend) { const d = dist(e.color, hex); if (d < best) { best = d; label = e.label; } }
-      if (best > 38) label = null;
-    }
+    const label = pickInto;
     pickInto = null;
-    if (label) myPal.slots[label] = hex;
-    else { myPal.extra = [hex, ...myPal.extra.filter((c) => c !== hex)].slice(0, 8); }
-    saveMyPal(); renderLegend();
+    if (!label) return null;
+    myPal.slots[label] = hex;
+    saveMyPal(); refreshPal();
     return label;
   }
   function editSlot(label: string | null, hex: string) {
@@ -409,40 +404,19 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       h('div', { class: 'sheet__actions' },
         h('button', { class: 'btn btn--gold', type: 'button', onclick: () => {
           if (label) myPal.slots[label] = cur; else myPal.extra = myPal.extra.map((c) => (c === hex ? cur : c));
-          saveMyPal(); setColor(cur); renderLegend(); close();
+          saveMyPal(); setColor(cur); refreshPal(); close();
         } }, 'שמירה'),
         h('button', { class: 'btn btn--ghost', type: 'button', onclick: () => {
           if (label) delete myPal.slots[label]; else myPal.extra = myPal.extra.filter((c) => c !== hex);
-          saveMyPal(); renderLegend(); close();
-        } }, 'ריקון'))));
-  }
-  function chip(hex: string | null, label?: string) {
-    const b = h('button', { class: 'legend__chip' + (label ? '' : ' legend__chip--plain') + (hex ? '' : ' is-empty'), type: 'button',
-      'aria-label': label ? (hex ? `צבע ${label}` : `${label}: עוד לא נדגם. הקשה ואז נגיעה בקובייה בדף`) : (hex ?? ''), title: hex ?? 'לדגום צבע', 'data-c': (hex ?? '').toLowerCase() },
-      h('span', { class: 'legend__dot' }), label ? h('span', { class: 'legend__num' }, label) : null);
-    if (hex) (b.firstElementChild as HTMLElement).style.background = hex;
-    let timer = 0, long = false;
-    b.addEventListener('pointerdown', () => { long = false; timer = window.setTimeout(() => { long = true; if (hex) editSlot(label ?? null, hex); }, 550); });
-    b.addEventListener('pointerup', () => clearTimeout(timer));
-    b.addEventListener('pointerleave', () => clearTimeout(timer));
-    b.addEventListener('click', () => {
-      if (long) return;
-      if (!coloring) setColoring(true);
-      if (!hex) { pickInto = label ?? null; startPicker(); toast(`געי בקובייה של ${label} בדף כדי לדגום את הצבע שלה`); return; }
-      if (state.color.toLowerCase() === hex.toLowerCase()) { editSlot(label ?? null, hex); return; }
-      setColor(hex);
-    });
-    return b;
+          saveMyPal(); refreshPal(); close();
+        } }, 'לצבע המקורי'))));
   }
   function renderLegend() {
     legend.replaceChildren();
     const page = surface?.page;
-    legend.hidden = !page || (!page.legend.length && !myPal.extra.length);
-    if (!page) return;
-    if (page.id !== myPalPage) { void loadMyPal(); return; }
-    for (const e of page.legend) legend.append(chip(myPal.slots[e.label] ?? null, e.label));
-    for (const c of myPal.extra) legend.append(chip(c));
-    markLegend();
+    // no colour row under the page: the page's colours live in "🎨 צבעי הדף"
+    legend.hidden = true;
+    if (page && page.id !== myPalPage) void loadMyPal();
   }
   const markLegend = () => legend.querySelectorAll<HTMLElement>('.legend__chip').forEach((c) => c.classList.toggle('is-on', !!c.dataset.c && c.dataset.c === state.color.toLowerCase()));
 
@@ -505,7 +479,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
       color: state.color,
       palette: prefs.get<string[]>(key, []),
       recent: prefs.get<string[]>('recent', []),
-      legend: (page?.legend ?? []).filter((e) => myPal.slots[e.label]).map((e) => ({ label: e.label, color: myPal.slots[e.label] })),
+      legend: pageColours(),
       onChange: setColor,
       onAddToPalette: (hex) => {
         const pal = prefs.get<string[]>(key, []).filter((c) => c !== hex);
@@ -653,12 +627,40 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   let pal: ReturnType<typeof openPalette> | null = null;
+  /** The page's colours, with the ones she changed. */
+  const pageColours = () => (surface?.page?.legend ?? []).map((e) => ({ label: e.label, color: myPal.slots[e.label] ?? e.color }));
   function openPal() {
-    const entries = surface?.page?.legend ?? [];
+    const entries = pageColours();
     if (!entries.length) return;
-    pal = openPalette(entries, state.color, (hex) => { setColor(hex); if (!coloring) setColoring(true); }, () => { pal = null; palBtn.classList.remove('is-on'); });
+    pal = openPalette(entries, state.color, (hex) => { setColor(hex); if (!coloring) setColoring(true); }, () => { pal = null; palBtn.classList.remove('is-on'); }, {
+      onEdit: (label, hex) => editSlot(label, hex),
+      onSample: (label) => { pickInto = label; if (!coloring) setColoring(true); startPicker(); toast(`געי בצבע בדף, בחלונית הרפרנס או בפתרון, והוא יישמר ל-${label}`); },
+    });
     palBtn.classList.add('is-on');
   }
+  function refreshPal() { if (pal) openPal(); }
+
+  /** A colour was sampled (from the page, the reference window or the solution). */
+  function finishPick(hex: string | null) {
+    setRefPicking(null);
+    state.tool = toolBeforePicker;
+    if (hex) { setColor(hex); const l = keepSample(hex); toast(l ? `הצבע נשמר ל-${l} 🎨` : 'הצבע נדגם'); } else { pickInto = null; toast('אין כאן צבע לדגום'); }
+    toolbar?.update();
+  }
+  // sampling from the solution laid over the page
+  host.addEventListener('pointerdown', (e) => {
+    if (state.tool !== 'picker' || !solOver) return;
+    const img = solOver.querySelector('img'); if (!img || !img.naturalWidth) return;
+    e.stopPropagation(); e.preventDefault();
+    const r = img.getBoundingClientRect();
+    const k = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+    const px = (e.clientX - (r.left + (r.width - img.naturalWidth * k) / 2)) / k, py = (e.clientY - (r.top + (r.height - img.naturalHeight * k) / 2)) / k;
+    const c = document.createElement('canvas'); c.width = 3; c.height = 3;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    try { x.drawImage(img, px - 1, py - 1, 3, 3, 0, 0, 3, 3); } catch { finishPick(null); return; }
+    const d = x.getImageData(1, 1, 1, 1).data;
+    finishPick(d[3] ? '#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join('') : null);
+  }, true);
 
   // ----- wiring -----
   homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { categoriesScreen } = await import('./categories'); go(categoriesScreen, 'back'); });

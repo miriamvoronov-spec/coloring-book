@@ -85,50 +85,56 @@ export function logoMoon(size: number, label: string): string {
 </svg>`;
 }
 
-/** The palette and the open coloring book together: paint from the palette runs as a sparkle trail onto coloured pages. */
+/** An open coloring book, half coloured by numbers, with the palette resting diagonally on its side. */
 export function logoPaletteBook(size: number, label: string): string {
-  const paints = [['#ef476f', 64, 60], ['#ffd166', 92, 44], ['#06d6a0', 124, 40], ['#118ab2', 154, 50], ['#9d7ae6', 168, 76]];
+  const paints = [['#ef476f', -34, -8], ['#ffd166', -14, -20], ['#06d6a0', 8, -22], ['#118ab2', 28, -12], ['#9d7ae6', 36, 8]];
+  const num = (x: number, y: number, t: string) => `<text x="${x}" y="${y}" font-size="7.5" font-weight="700" font-family="Fredoka, sans-serif" fill="#3a2a1a" text-anchor="middle" dominant-baseline="central">${t}</text>`;
   return `
 <svg class="logo-mark" width="${size}" height="${size}" viewBox="0 0 240 240" role="img" aria-label="${label}">
   <defs>${GOLD('lb-gold')}
-    <linearGradient id="lb-wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3dc"/><stop offset="1" stop-color="#e6c896"/></linearGradient>
+    <linearGradient id="lb-wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3dc"/><stop offset="1" stop-color="#e2c08a"/></linearGradient>
     <linearGradient id="lb-cover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a4a2a"/><stop offset="1" stop-color="#5a2c16"/></linearGradient>
     <linearGradient id="lb-pageL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6e7c8"/><stop offset=".85" stop-color="#fffaf0"/><stop offset="1" stop-color="#e6cfa4"/></linearGradient>
     <linearGradient id="lb-pageR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#f6e7c8"/><stop offset=".85" stop-color="#fffaf0"/><stop offset="1" stop-color="#e6cfa4"/></linearGradient>
     <radialGradient id="lb-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffdf92" stop-opacity=".4"/><stop offset="1" stop-color="#ffdf92" stop-opacity="0"/></radialGradient>
-    <clipPath id="lb-left"><path d="M120 196 C 98 184, 66 182, 40 188 L 40 128 C 66 122, 98 124, 120 136 Z"/></clipPath>
+    <clipPath id="lb-left"><path d="M120 186 C 96 172, 60 170, 28 176 L 28 92 C 60 86, 96 88, 120 102 Z"/></clipPath>
+    <clipPath id="lb-right"><path d="M120 186 C 144 172, 180 170, 212 176 L 212 92 C 180 86, 144 88, 120 102 Z"/></clipPath>
   </defs>
-  <ellipse cx="120" cy="120" rx="116" ry="110" fill="url(#lb-glow)"/>
-  <!-- the palette, above the book -->
-  <path d="M112 22 C 160 20, 194 46, 190 78 C 187 100, 164 112, 134 110 C 118 109, 114 100, 120 92 C 126 84, 120 76, 108 79 C 92 83, 80 96, 62 90 C 42 83, 40 58, 58 42 C 72 30, 90 23, 112 22 Z" fill="url(#lb-wood)" stroke="url(#lb-gold)" stroke-width="3.5" stroke-linejoin="round"/>
-  <ellipse cx="78" cy="78" rx="8" ry="6.5" fill="#2b1a10" opacity=".8"/>
-  ${paints.map(([c, x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="${c}" stroke="rgba(0,0,0,.18)"/>`).join('')}
-  <!-- the brush dips in the palette and paints a sparkle trail onto the page -->
-  <path d="M150 92 C 150 116, 128 122, 104 140" fill="none" stroke="url(#lb-gold)" stroke-width="2.5" stroke-dasharray="2 6" stroke-linecap="round"/>
-  <g transform="translate(150 90) rotate(-62)">
-    <path d="M0 0 C 4 -5, 10 -5, 13 -3 L 13 3 C 10 5, 4 5, 0 0 Z" fill="#ef476f"/>
-    <rect x="13" y="-3.5" width="8" height="7" fill="url(#lb-gold)"/>
-    <rect x="21" y="-3" width="46" height="6" rx="3" fill="#6f4fc2"/>
+  <ellipse cx="120" cy="124" rx="116" ry="108" fill="url(#lb-glow)"/>
+  <ellipse cx="120" cy="206" rx="96" ry="7" fill="#000" opacity=".28"/>
+  <!-- the open book -->
+  <path d="M120 196 C 90 182, 52 180, 18 186 L 18 96 C 52 90, 90 92, 120 106 C 150 92, 188 90, 222 96 L 222 186 C 188 180, 150 182, 120 196 Z" fill="url(#lb-cover)" stroke="url(#lb-gold)" stroke-width="2.5"/>
+  <path d="M120 186 C 96 172, 60 170, 28 176 L 28 92 C 60 86, 96 88, 120 102 Z" fill="url(#lb-pageL)" stroke="#c9a36a" stroke-width="1.2"/>
+  <path d="M120 186 C 144 172, 180 170, 212 176 L 212 92 C 180 86, 144 88, 120 102 Z" fill="url(#lb-pageR)" stroke="#c9a36a" stroke-width="1.2"/>
+  <!-- left page: a flower picture, partly coloured by its numbers -->
+  <g clip-path="url(#lb-left)" stroke="#2b1a10" stroke-width="1.2" stroke-linejoin="round" fill="none">
+    <path d="M28 160 C 50 150, 90 152, 120 166"/>
+    <path d="M28 160 C 50 150, 90 152, 120 166 L 120 190 L 28 190 Z" fill="#9bd770"/>
+    <circle cx="74" cy="118" r="9" fill="#ffd23f"/>
+    <path d="M74 109 C 66 96, 82 92, 80 108" fill="#ef476f"/><path d="M83 115 C 96 106, 100 122, 84 122" fill="#ef476f"/>
+    <path d="M80 126 C 88 140, 72 142, 72 127"/><path d="M65 122 C 52 128, 50 112, 65 113"/><path d="M68 110 C 58 100, 70 94, 72 109"/>
+    <path d="M74 127 V 158" stroke="#3a9d5d" stroke-width="2"/><path d="M74 146 C 84 138, 92 142, 88 148 C 84 152, 78 150, 74 146 Z" fill="#9bd770"/>
+    <path d="M40 104 C 44 98, 54 98, 56 104 C 60 102, 64 108, 58 110 H 42 C 36 110, 36 104, 40 104 Z"/>
+    <path d="M96 108 C 98 102, 108 100, 110 106 C 114 106, 114 112, 110 112 H 98 C 94 112, 94 108, 96 108 Z" fill="#bfe3ff"/>
   </g>
-  <!-- the book: leather cover, gilded edges, a coloured picture on the left page -->
-  <ellipse cx="120" cy="214" rx="90" ry="7" fill="#000" opacity=".28"/>
-  <path d="M120 206 C 92 194, 56 192, 26 198 L 26 132 C 56 126, 92 128, 120 140 C 148 128, 184 126, 214 132 L 214 198 C 184 192, 148 194, 120 206 Z" fill="url(#lb-cover)" stroke="url(#lb-gold)" stroke-width="2.5"/>
-  <path d="M120 200 C 96 188, 64 186, 34 192 L 34 132" fill="none" stroke="#e9c46a" stroke-width="1.6" opacity=".8"/>
-  <path d="M120 200 C 144 188, 176 186, 206 192 L 206 132" fill="none" stroke="#e9c46a" stroke-width="1.6" opacity=".8"/>
-  <path d="M120 196 C 98 184, 66 182, 40 188 L 40 128 C 66 122, 98 124, 120 136 Z" fill="url(#lb-pageL)" stroke="#c9a36a" stroke-width="1.2"/>
-  <path d="M120 196 C 142 184, 174 182, 200 188 L 200 128 C 174 122, 142 124, 120 136 Z" fill="url(#lb-pageR)" stroke="#c9a36a" stroke-width="1.2"/>
-  <g clip-path="url(#lb-left)" stroke="#2b1a10" stroke-width="1.3" stroke-linejoin="round">
-    <path d="M40 170 C 60 160, 90 162, 120 176 L 120 200 L 40 200 Z" fill="#9bd770"/>
-    <circle cx="62" cy="144" r="8" fill="#ffd23f"/>
-    <path d="M92 160 C 84 150, 86 140, 94 140 C 98 140, 100 144, 100 146 C 100 144, 102 140, 106 140 C 114 140, 116 150, 108 160 L 100 168 Z" fill="#ef476f"/>
-    <path d="M100 168 V 182" fill="none" stroke="#3a9d5d" stroke-width="2"/>
+  <g clip-path="url(#lb-left)">${num(48, 105, '2')}${num(68, 130, '3')}${num(100, 176, '1')}${num(103, 107, '2')}</g>
+  <!-- right page: still to colour, only lines and numbers -->
+  <g clip-path="url(#lb-right)" stroke="#2b1a10" stroke-width="1.1" fill="none" opacity=".85">
+    <path d="M120 150 C 140 138, 170 136, 212 146"/><path d="M134 120 L 146 104 L 158 120 Z"/><path d="M136 120 H 156 V 140 H 136 Z"/>
+    <circle cx="186" cy="114" r="10"/>
   </g>
-  <g stroke="#2b1a10" stroke-width="1.1" fill="none" opacity=".75">
-    <path d="M136 152 C 150 146, 170 146, 186 150"/><path d="M136 162 C 150 156, 170 156, 186 160"/>
-    <circle cx="164" cy="176" r="9"/><path d="M150 186 C 158 182, 172 182, 180 186"/>
+  <g clip-path="url(#lb-right)">${num(146, 130, '4')}${num(186, 114, '5')}${num(172, 164, '1')}${num(146, 114, '6')}</g>
+  <path d="M120 106 V 196" stroke="#a87a3a" stroke-width="1.4"/>
+  <!-- the palette, resting diagonally on the right side of the book -->
+  <g transform="translate(178 86) rotate(-28)">
+    <path d="M-6 -36 C 30 -38, 56 -18, 52 6 C 50 22, 34 30, 12 30 C 0 30, -4 22, 0 16 C 4 10, 0 4, -10 6 C -22 8, -30 18, -44 14 C -60 9, -62 -8, -50 -20 C -40 -30, -24 -35, -6 -36 Z" fill="url(#lb-wood)" stroke="url(#lb-gold)" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse cx="-20" cy="2" rx="6.5" ry="5" fill="#5a2c16" opacity=".85"/>
+    ${paints.map(([c, x, y]) => `<circle cx="${x}" cy="${y}" r="7.5" fill="${c}" stroke="rgba(0,0,0,.18)"/>`).join('')}
+    <g transform="translate(10 18) rotate(-35)"><path d="M0 0 C 3 -4, 8 -4, 10 -2 L 10 2 C 8 4, 3 4, 0 0 Z" fill="#ef476f"/><rect x="10" y="-2.8" width="7" height="5.6" fill="url(#lb-gold)"/><rect x="17" y="-2.4" width="40" height="4.8" rx="2.4" fill="#6f4fc2"/></g>
   </g>
-  <path d="M120 136 V 206" stroke="#a87a3a" stroke-width="1.4"/>
-  <g fill="url(#lb-gold)" stroke="#b07a26" stroke-width=".5">${star(104, 140, 5, 's1')}${star(122, 122, 4, 's2')}${star(138, 110, 4, 's3')}${star(206, 30, 8, 's4')}${star(222, 58, 5, 's1')}${star(24, 104, 6, 's2')}</g>
+  <!-- sparkles from the brush to the page -->
+  <path d="M150 112 C 134 118, 118 120, 104 128" fill="none" stroke="url(#lb-gold)" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round"/>
+  <g fill="url(#lb-gold)" stroke="#b07a26" stroke-width=".5">${star(108, 126, 5, 's1')}${star(128, 116, 4, 's2')}${star(30, 52, 7, 's3')}${star(60, 30, 5, 's4')}${star(214, 196, 5, 's1')}</g>
 </svg>`;
 }
 

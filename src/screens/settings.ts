@@ -3,7 +3,7 @@ import { go } from '../app/app';
 import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS } from '../app/settings';
 import { ALL_TOOLS, DEFAULT_TOOLS, type ToolName } from '../coloring/brushes';
 import { LOGO_STYLES, logoMark } from '../ui/logo';
-import { FLIP_SOUNDS, paperFlip, unlockAudio } from '../ui/sound';
+import { chime, FLIP_SOUNDS, paperFlip, SPARKLE_SOUNDS, unlockAudio } from '../ui/sound';
 import { h, toast } from '../ui/dom';
 import { appBar } from '../ui/appbar';
 import { categoriesScreen } from './categories';
@@ -180,6 +180,7 @@ export function settingsScreen(el: HTMLElement) {
         toggle('צלילי דפדוף וניצוצות קול', s.sounds, (v) => saveSettings({ sounds: v })),
         h('p', { class: 'set-label' }, 'צליל הדפדוף (לחיצה משמיעה אותו)'),
         radios('צליל הדפדוף', FLIP_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('flipSound', 'real'), (v) => { prefs.set('flipSound', v); unlockAudio(); paperFlip(v); }),
+        radios('צליל הניצוצות', SPARKLE_SOUNDS.map((x) => [x.id, x.name] as [string, string]), prefs.get('sparkleSound', 'chime'), (v) => { prefs.set('sparkleSound', v); unlockAudio(); chime(v); }),
         toggle('ניצוצות וקונפטי', s.sparkles, (v) => saveSettings({ sparkles: v }))),
       section('🖍️ סרגל הכלים', h('p', { class: 'set-label' }, 'איפה הסרגל יופיע (אפשר גם לגרור אותו בזמן הצביעה)'), side),
       section('📖 חוברות', h('p', { class: 'set-label' }, 'כיוון הדפדוף לחוברות חדשות שמוסיפים. לכל חוברת אפשר לשנות בלחיצה ארוכה במדף.'), dir),

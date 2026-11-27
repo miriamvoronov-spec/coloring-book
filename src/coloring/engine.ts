@@ -590,7 +590,8 @@ export class PageEngine {
   private maskFor(id: number): { canvas: HTMLCanvasElement; rect: Rect } {
     const hit = this.maskCache.get(id);
     if (hit) return hit;
-    const m = regionMask(this.map!, [id], 3);
+    // grow across the whole width of the lines, so neighbouring colours meet with no white gap
+    const m = regionMask(this.map!, [id], Math.max(4, Math.round(Math.max(this.W, this.H) / 280)));
     const canvas = maskCanvas(m.alpha, m.rect.w, m.rect.h);
     const out = { canvas, rect: m.rect };
     if (this.maskCache.size > 24) this.maskCache.clear();
