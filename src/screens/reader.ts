@@ -16,6 +16,7 @@ import { closeBookAnimation } from './book3d';
 import { endBookTheme, playBookTheme } from '../ui/music';
 import { shareBook, sharePage } from '../app/share';
 import { shelfScreen } from './shelf';
+import { SpreadView, type Leaf } from './spread';
 
 type Entry = { kind: 'cover' } | { kind: 'title' } | { kind: 'page'; id: string } | { kind: 'congrats' } | { kind: 'back' };
 
@@ -71,11 +72,86 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   if (rtl) { prevBtn.classList.add('arrow--right'); nextBtn.classList.add('arrow--left'); } else { prevBtn.classList.add('arrow--left'); nextBtn.classList.add('arrow--right'); }
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
-  const root = h('main', { class: 'reader' },
+  const root = h('main', { class: 'reader reader--browse' },
     h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);
+
+  let browsing = true;
+  let spread: SpreadView | null = null;
+  const leafUrls: string[] = [];
+  const blobUrl = (b: Blob) => { const u = URL.createObjectURL(b); leafUrls.push(u); return u; };
+  let congratsBlob: Promise<Blob> | null = null;
+
+  /** One page of the open book, as a still picture (colouring happens full screen). */
+  async function renderLeaf(leaf: Leaf): Promise<HTMLElement> {
+    const e = entries[leaf.entry];
+    if (leaf.key === 'cover' || leaf.key === 'back') {
+      const which = leaf.key as 'cover' | 'back';
+      return coverFace(book, await coverUrl(book, which), which);
+    }
+    if (leaf.key === 'plate') {
+      const owner = settings().name.trim();
+      const el = h('div', { class: 'tpage--plate' },
+        h('div', { class: 'bookplate' },
+          h('div', { class: 'bookplate__star', 'aria-hidden': 'true' }, '✦'),
+          h('div', { class: 'bookplate__k' }, 'ספר זה שייך ל'),
+          h('div', { class: 'bookplate__name', dir: 'auto' }, owner || '✨')));
+      el.style.setProperty('--cover', book.coverColor);
+      return el;
+    }
+    if (leaf.key === 'titlepage') {
+      return h('div', {},
+        h('div', { class: 'book3d__frame', 'aria-hidden': 'true' }),
+        h('div', { class: 'book3d__titlepage' },
+          h('div', { class: 'book3d__mark', html: logoMark(120) }),
+          h('div', { class: 'book3d__ttl', dir: 'auto' }, book.title),
+          h('div', { class: 'book3d__rule', 'aria-hidden': 'true' }, h('span', {}, '✦')),
+          h('div', { class: 'book3d__sub', dir: 'ltr' }, "Miriam's Coloring Books")));
+    }
+    const art = h('div', { class: 'tpage__art' });
+    const el = h('div', {}, art);
+    if (e.kind === 'page') {
+      const [pg, paint] = await Promise.all([store.page(e.id), store.paint(e.id)]);
+      if (pg) {
+        art.append(h('img', { class: 'tpage__lines', src: blobUrl(pg.image), alt: '', decoding: 'async' }));
+        if (paint?.color) art.append(h('img', { class: 'tpage__paint', src: blobUrl(paint.color), alt: '', decoding: 'async' }));
+      }
+      const no = entries.slice(0, leaf.entry + 1).filter((x) => x.kind === 'page').length;
+      el.append(h('div', { class: 'tpage__no' }, String(no)));
+    } else if (e.kind === 'congrats') {
+      congratsBlob ??= congratsArt(1600, 2240, book.style);
+      const [img, paint] = await Promise.all([congratsBlob, store.paint('congrats-' + book.id)]);
+      art.append(h('img', { class: 'tpage__lines', src: blobUrl(img), alt: '', decoding: 'async' }));
+      if (paint?.color) art.append(h('img', { class: 'tpage__paint', src: blobUrl(paint.color), alt: '', decoding: 'async' }));
+    }
+    return el;
+  }
+
+  /** Tap a page in the book: it opens on its own, as large as the screen allows, ready to colour. */
+  async function openForColoring(entry: number) {
+    if (busy) return;
+    browsing = false;
+    root.classList.remove('reader--browse');
+    await show(entry, 0);
+    setColoring(true);
+    updateChrome();
+  }
+
+  /** Done colouring: back to the open book, on the spread with this page. */
+  async function backToBook() {
+    const entry = index;
+    setColoring(false);
+    const s = surface; surface = null;
+    await s?.destroy();
+    host.replaceChildren();
+    spread?.refresh(entry);
+    browsing = true;
+    root.classList.add('reader--browse');
+    layout();
+    await spread?.show(spread.spreadOfEntry(entry));
+  }
 
   // ----- layout -----
   const layout = () => {
@@ -85,6 +161,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const arrowRoom = coloring || r.width < 640 ? 0 : 128;
     const aw = r.width - padX - arrowRoom - 24, ah = r.height - padY - 20;
+    if (browsing) { spread?.layout(r.width - padX - (r.width < 640 ? 24 : 170), r.height - padY - 24); return; }
     const aspect = surface?.aspect ?? 1 / 1.4;
     let w = aw, hgt = aw / aspect;
     if (hgt > ah) { hgt = ah; w = ah * aspect; }
@@ -233,6 +310,12 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   }
 
   async function flip(d: 1 | -1) {
+    if (browsing) {
+      if (!spread) return;
+      const r = await spread.flip(d);
+      if (r === 'end') await closeBook();
+      return;
+    }
     if (busy || coloring) return;
     const n = index + d;
     if (n < 0) return;
@@ -248,7 +331,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     void backId;
     // put the shelf behind the animation, so the book can fly back to its place
     go((r) => shelfScreen(r, cat), 'none');
-    await closeBookAnimation(book, entries[index]?.kind === 'back', () => {
+    await closeBookAnimation(book, browsing ? !!spread?.atEnd : entries[index]?.kind === 'back', () => {
       const el = document.querySelector<HTMLElement>(`.shelf-book[data-id="${book.id}"] .shelf-book__body`);
       if (!el) return null;
       el.closest('.shelf-book')?.scrollIntoView({ block: 'nearest' });
@@ -258,6 +341,17 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   // ----- chrome -----
   function updateChrome() {
+    if (browsing) {
+      const shown = spread?.current() ?? [];
+      const nos = shown.filter((l) => entries[l.entry]?.kind === 'page').map((l) => entries.slice(0, l.entry + 1).filter((x) => x.kind === 'page').length);
+      const total = entries.filter((x) => x.kind === 'page').length;
+      const k = shown[0] ? entries[shown[0].entry]?.kind : undefined;
+      counter.textContent = nos.length ? `עמוד ${nos.join('–')} מתוך ${total}` : k === 'cover' ? 'כריכה' : k === 'back' ? 'כריכה אחורית' : k === 'title' ? 'פתיחה' : k === 'congrats' ? 'סוף החוברת' : '';
+      solutionBtn.hidden = true; modeBtn.hidden = true;
+      prevBtn.disabled = !spread || spread.index === 0;
+      nextBtn.setAttribute('aria-label', spread?.atEnd ? 'סגירת החוברת' : 'העמוד הבא');
+      return;
+    }
     const e = entries[index];
     const pageNo = entries.slice(0, index + 1).filter((x) => x.kind === 'page').length;
     const total = entries.filter((x) => x.kind === 'page').length;
@@ -408,10 +502,13 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
 
   // ----- wiring -----
   homeBtn.addEventListener('click', async () => { await surface?.destroy(); surface = null; const { categoriesScreen } = await import('./categories'); go(categoriesScreen, 'back'); });
-  back.addEventListener('click', async () => { await surface?.destroy(); surface = null; go((r) => shelfScreen(r, cat), 'back'); });
+  back.addEventListener('click', async () => {
+    if (!browsing) { await backToBook(); return; }
+    await surface?.destroy(); surface = null; go((r) => shelfScreen(r, cat), 'back');
+  });
   prevBtn.addEventListener('click', () => void flip(-1));
   nextBtn.addEventListener('click', () => void flip(1));
-  modeBtn.addEventListener('click', () => setColoring(!coloring));
+  modeBtn.addEventListener('click', () => { if (coloring) void backToBook(); else setColoring(true); });
   solutionBtn.addEventListener('click', () => void openSolution());
   gridBtn.addEventListener('click', () => void openGrid());
 
@@ -423,6 +520,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const url = (b: Blob) => { const u = URL.createObjectURL(b); urls.push(u); return u; };
     const grid = h('div', { class: 'pgrid', role: 'list' });
     let pageNo = 0;
+    const cur = browsing ? new Set((spread?.current() ?? []).map((l) => l.entry)) : new Set([index]);
     const tiles = entries.map((e, i) => {
       const art = h('div', { class: 'pgrid__art' });
       let label = '';
@@ -445,15 +543,19 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
           art.append(h('img', { class: 'pgrid__lines', src: url(pg.image), alt: '', loading: 'lazy', decoding: 'async' }));
         })();
       }
-      const tile = h('button', { class: 'pgrid__tile' + (i === index ? ' is-current' : ''), type: 'button', role: 'listitem', 'aria-label': label },
+      const tile = h('button', { class: 'pgrid__tile' + (cur.has(i) ? ' is-current' : ''), type: 'button', role: 'listitem', 'aria-label': label },
         art, h('span', { class: 'pgrid__label' }, label));
-      tile.addEventListener('click', () => { close(); if (i !== index) void show(i, i > index ? 1 : -1); });
+      tile.addEventListener('click', async () => {
+        close();
+        if (!browsing) await backToBook();
+        await spread?.show(spread.spreadOfEntry(i));
+      });
       return tile;
     });
     grid.append(...tiles);
     const close = sheet('כל הדפים', grid, () => setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), 400));
     grid.closest('.sheet')?.classList.add('sheet--wide');
-    requestAnimationFrame(() => tiles[index]?.scrollIntoView({ block: 'center' }));
+    requestAnimationFrame(() => tiles.find((t) => t.classList.contains('is-current'))?.scrollIntoView({ block: 'center' }));
   }
   shareBtn.addEventListener('click', () => {
     const s = surface;
@@ -474,10 +576,24 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   document.addEventListener('visibilitychange', onHide);
 
   setColoring(false);
-  void ready.then(() => {
-    // a book always opens on its first page, like a real one
-    const start = Math.min(1, entries.length - 1);
-    void show(start, 0);
+  void ready.then(async () => {
+    // browse it like a real book: two pages at a time; it opens on "this book belongs to…" and the title page
+    const leaves: Leaf[] = [];
+    entries.forEach((e, i) => {
+      if (e.kind === 'title') { leaves.push({ key: 'plate', entry: i, tappable: false }, { key: 'titlepage', entry: i, tappable: false }); return; }
+      leaves.push({ key: e.kind, entry: i, tappable: e.kind === 'page' || e.kind === 'congrats' });
+    });
+    const firstPage = entries.find((e) => e.kind === 'page') as { id: string } | undefined;
+    const fp = firstPage ? await store.page(firstPage.id) : undefined;
+    const aspect = fp ? fp.width / fp.height : 1 / 1.4;
+    spread = new SpreadView(leaves, rtl, aspect, book.coverColor, {
+      render: renderLeaf,
+      onOpen: (leaf) => void openForColoring(leaf.entry),
+      onChange: () => updateChrome(),
+    });
+    main.prepend(spread.el);
+    layout();
+    await spread.show(1);
   });
 
   if (book.madeWithClaude && book.music !== false) void playBookTheme(book.id, book.style, book.title);
@@ -491,6 +607,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     document.removeEventListener('visibilitychange', onHide);
     toolbar?.destroy();
     void surface?.destroy();
+    setTimeout(() => leafUrls.forEach((u) => URL.revokeObjectURL(u)), 2000);
   };
 }
 

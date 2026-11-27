@@ -306,13 +306,13 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 
 .book {
   position: relative; border-radius: 4px 8px 8px 4px;
-  background: radial-gradient(140% 100% at 50% 50%, transparent 60%, rgba(0,0,0,.4)), var(--leather-grain), linear-gradient(160deg, color-mix(in srgb, var(--cover) 80%, #fff3d0), var(--cover) 45%, color-mix(in srgb, var(--cover) 70%, black));
+  background: radial-gradient(140% 100% at 50% 50%, transparent 60%, rgba(20,8,0,.5)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .2  0 0 0 0 .12  0 0 0 0 .05  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"), linear-gradient(160deg, color-mix(in srgb, var(--cover) 40%, #a8703a), color-mix(in srgb, var(--cover) 40%, #6e4020) 45%, color-mix(in srgb, var(--cover) 35%, #2a1406));
   background-size: auto, 160px 160px, auto;
   padding: 12px 18px 12px 8px;
   box-shadow: 0 34px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4), inset 0 0 0 2px rgba(231,184,80,.35), 0 0 90px rgba(231,184,80,.14);
 }
 .book--rtl { padding: 12px 8px 12px 18px; }
-.book__edges { position: absolute; top: 9px; bottom: 9px; right: 5px; width: 13px; border-radius: 0 3px 3px 0; background: var(--gilt); box-shadow: 2px 0 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(120,80,20,.4); }
+.book__edges { position: absolute; top: 9px; bottom: 9px; right: 5px; width: 13px; border-radius: 0 3px 3px 0; background: repeating-linear-gradient(90deg, #efe0bd 0 1px, #d8c29a 1px 2px, #f6ead0 2px 3px); box-shadow: 2px 0 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(120,80,20,.4); }
 .book--rtl .book__edges { right: auto; left: 5px; border-radius: 3px 0 0 3px; }
 .book__page { position: relative; width: 100%; height: 100%; background: var(--paper); border-radius: 2px 4px 4px 2px; overflow: hidden; perspective: 2200px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
 .book__page > .spread { position: absolute; inset: 0; border-radius: 0; box-shadow: none; }
@@ -697,3 +697,67 @@ body[data-tb="bottom"] .reader--color .reader__main { padding-bottom: 78px; }
 .logo-choice.is-on { border-color: var(--gold); box-shadow: 0 0 12px rgba(233,196,106,.35); }
 .logo-choice__art { display: grid; place-items: center; }
 .line-preview { font-style: italic; margin-top: 8px; }
+
+/* ===== browsing: an old book, two pages side by side ===== */
+.spreadview { position: absolute; inset: 0; display: grid; place-items: center; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.tome { --pw: 300px; --ph: 420px; --cover: #6b3a1f; position: relative; width: calc(var(--pw) * 2); height: var(--ph); perspective: 3600px; transition: width .35s ease, height .35s ease; }
+/* leather binding: warm, grained, a little worn at the corners */
+.tome__board { position: absolute; inset: calc(var(--ph) * -0.03) calc(var(--ph) * -0.035); border-radius: 10px 12px 12px 10px;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(20,8,0,.55)),
+    linear-gradient(90deg, rgba(0,0,0,.25), transparent 8%, transparent 92%, rgba(0,0,0,.25)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .2  0 0 0 0 .12  0 0 0 0 .05  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    linear-gradient(160deg, color-mix(in srgb, var(--cover) 40%, #a8703a), color-mix(in srgb, var(--cover) 40%, #6e4020) 50%, color-mix(in srgb, var(--cover) 35%, #2a1406));
+  box-shadow: 0 26px 50px rgba(0,0,0,.55), inset 0 0 0 2px rgba(214,170,90,.35), inset 0 0 0 7px rgba(0,0,0,.18), inset 0 0 0 8px rgba(214,170,90,.25); }
+.tome__side { position: absolute; top: 0; width: var(--pw); height: var(--ph); overflow: hidden; container-type: size;
+  background:
+    radial-gradient(140% 100% at 50% 50%, transparent 60%, rgba(120,80,30,.22)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.035' numOctaves='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .42  0 0 0 0 .22  0 0 0 .10 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>"),
+    #f4e8cc; }
+.tome__side--first { left: 0; } .tome__side--second { left: var(--pw); }
+.tome--rtl .tome__side--first { left: var(--pw); } .tome--rtl .tome__side--second { left: 0; }
+.tome__side.is-empty { background: none; }
+.tome__side.is-tappable { cursor: pointer; }
+.tome__side.is-tappable:hover::after { content: '🖍️ לצביעה'; position: absolute; bottom: 3%; left: 50%; transform: translateX(-50%); background: rgba(43,26,16,.85); color: #f3d98a; padding: .3em .8em; border-radius: 999px; font-size: clamp(11px, 3cqh, 16px); pointer-events: none; }
+/* the fold: shade at the spine on both pages */
+.tome__spine { position: absolute; top: 0; bottom: 0; left: calc(var(--pw) - 28px); width: 56px; pointer-events: none; z-index: 4;
+  background: linear-gradient(90deg, transparent, rgba(70,40,10,.18) 35%, rgba(40,20,5,.42) 50%, rgba(70,40,10,.18) 65%, transparent); }
+.tome--closed .tome__spine, .tome--closed .tome__board, .tome--closed .tome__edge { display: none; }
+/* the page block on the outer edges: thin parchment sheets */
+.tome__edge { --thick: 8px; position: absolute; top: 3px; bottom: 3px; width: var(--thick); z-index: 0;
+  background: repeating-linear-gradient(90deg, #efe0bd 0 1px, #d8c29a 1px 2px, #f6ead0 2px 3px);
+  box-shadow: 0 2px 4px rgba(0,0,0,.35); }
+.tome__edge--first { left: calc(var(--thick) * -1); border-radius: 3px 0 0 3px; }
+.tome__edge--second { left: calc(var(--pw) * 2); border-radius: 0 3px 3px 0; }
+.tome--rtl .tome__edge--first { left: calc(var(--pw) * 2); border-radius: 0 3px 3px 0; }
+.tome--rtl .tome__edge--second { left: calc(var(--thick) * -1); border-radius: 3px 0 0 3px; }
+/* what sits on a page */
+.tpage { position: absolute; inset: 0; }
+.tpage__art { position: absolute; inset: 4.5% 5%; }
+.tpage__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.tpage__lines { mix-blend-mode: multiply; }
+.tpage__paint { mix-blend-mode: multiply; }
+.tpage__no { position: absolute; bottom: 1.3%; left: 0; right: 0; text-align: center; font: italic 2.2cqh Bellefair, serif; color: #8a6a3a; }
+.tpage.cover { border-radius: 0; }
+.tpage .bookplate { font-size: 3.1cqh; }
+.tpage .book3d__titlepage { font-size: 3.3cqh; }
+.tpage .book3d__mark .logo-mark { width: 19cqh; height: auto; }
+.tpage .book3d__frame::before, .tpage .book3d__frame::after { font-size: 3cqh; background: #f4e8cc; }
+.tpage .book3d__frame { box-shadow: inset 0 0 0 5px rgba(255,250,240,.0), inset 0 0 0 6px rgba(201,153,63,.6); }
+.tpage--plate { display: grid; place-items: center; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><path d='M18 8 L20 16 L28 18 L20 20 L18 28 L16 20 L8 18 L16 16Z' fill='%23c9993f' opacity='.16'/></svg>"), radial-gradient(120% 90% at 50% 40%, color-mix(in srgb, var(--cover) 45%, #9a6a3a), color-mix(in srgb, var(--cover) 40%, #2a1406)); }
+.tpage--plate .bookplate { background: #f6ecd2; border: 2px solid #c9993f; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+/* the turning leaf */
+.tleaf { position: absolute; top: 0; width: var(--pw); height: var(--ph); transform-style: preserve-3d; z-index: 6; pointer-events: none; }
+.tleaf--first { left: 0; transform-origin: right center; } .tleaf--second { left: var(--pw); transform-origin: left center; }
+.tome--rtl .tleaf--first { left: var(--pw); transform-origin: left center; } .tome--rtl .tleaf--second { left: 0; transform-origin: right center; }
+.tleaf__face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; container-type: size; background: #f4e8cc; box-shadow: 0 0 18px rgba(0,0,0,.25); }
+.tleaf__face.is-empty { background: transparent; box-shadow: none; }
+.tleaf__back { transform: rotateY(180deg); }
+.tleaf__light { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,250,235,.7) 50%, rgba(255,255,255,0)); mix-blend-mode: soft-light; pointer-events: none; opacity: 0; }
+.tome__shade { position: absolute; top: 0; width: var(--pw); height: var(--ph); z-index: 5; pointer-events: none; background: linear-gradient(90deg, rgba(0,0,0,.45), transparent); opacity: 0; }
+.tome__shade--first { left: 0; } .tome__shade--second { left: var(--pw); }
+.tome--rtl .tome__shade--first { left: var(--pw); transform: scaleX(-1); } .tome--rtl .tome__shade--second { left: 0; }
+.tome:not(.tome--rtl) .tome__shade--first { transform: scaleX(-1); }
+/* the reader in browsing mode */
+.reader--browse .book, .reader--browse .legend { display: none; }
+.reader:not(.reader--browse) .spreadview { display: none; }
