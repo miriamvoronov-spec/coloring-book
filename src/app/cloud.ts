@@ -54,6 +54,8 @@ export function hebrewError(e: unknown): string {
   if (m.includes('rate limit')) return 'יותר מדי ניסיונות. כדאי לחכות כמה דקות';
   if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return 'אין חיבור לשרת. אם זה קישור של claude.ai, החשבונות עובדים באפליקציה המותקנת';
   if (m.includes('invite expired')) return 'קישור ההזמנה לא בתוקף';
+  if (m.includes('own friend link')) return 'זה הקישור שלך עצמך. שולחים אותו לחברה';
+  if (m.includes('could not find the function') || m.includes('schema cache')) return 'השרת צריך עוד הגדרה אחת. בעלת השרת מריצה את קוד ההגדרה ב-Supabase';
   if (m.includes('permission denied for')) return 'השרת צריך עוד הגדרה אחת (הרשאות לטבלאות). בעלת השרת מריצה את grants.sql ב-Supabase';
   if (m.includes('row-level security')) return 'אין הרשאה לפעולה הזאת';
   if (m.includes('payload too large') || m.includes('exceeded')) return 'הקובץ גדול מדי לשרת';
@@ -196,6 +198,32 @@ export function pendingInvite(): string | null {
   try { return localStorage.getItem(JOIN_KEY) || null; } catch { return null; }
 }
 export function clearPendingInvite(): void { try { localStorage.removeItem(JOIN_KEY); } catch { /* fine */ } }
+
+// ───────── personal friend links ─────────
+export async function friendLink(): Promise<string> {
+  const r = ok(await (await sb()).from('friend_links').insert({}).select('code').single()) as { code: string };
+  return `${appUrl()}#friend=${r.code}`;
+}
+export async function friendLinkInfo(code: string): Promise<{ username: string; display_name: string } | null> {
+  const rows = ok(await (await sb()).rpc('friend_link_info', { p_code: code })) as { username: string; display_name: string }[];
+  return rows[0] ?? null;
+}
+export async function acceptFriendLink(code: string): Promise<string> {
+  return ok(await (await sb()).rpc('accept_friend_link', { p_code: code })) as string;
+}
+const FRIEND_KEY = 'mcb.pendingFriend';
+/** A friend-link code that came in the link, kept (for every account on the device) until she is in. */
+export function pendingFriend(): string | null {
+  const m = /[#&]friend=([0-9a-f]{6,64})/i.exec(location.hash);
+  if (m) { try { localStorage.setItem(FRIEND_KEY, m[1]); } catch { /* fine */ } history.replaceState(null, '', location.href.split('#')[0]); }
+  try { return localStorage.getItem(FRIEND_KEY) || null; } catch { return null; }
+}
+export function clearPendingFriend(): void { try { localStorage.removeItem(FRIEND_KEY); } catch { /* fine */ } }
+/** The server is missing a table, a function or a permission: the one-time setup code fixes it. */
+export function needsSetup(e: unknown): boolean {
+  const m = String((e as { message?: string })?.message ?? e);
+  return /permission denied for|could not find the function|schema cache|relation .* does not exist/i.test(m);
+}
 
 // ───────── chat ─────────
 export async function messages(groupId: string, limit = 200): Promise<Message[]> {

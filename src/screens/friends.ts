@@ -64,8 +64,14 @@ export function friendsScreen(el: HTMLElement) {
       try { const g = await cloud.joinGroup(code); toast('הצטרפת לקבוצה ✨'); const gr = (await cloud.groups()).find((x) => x.id === g); if (gr) { openGroup(gr, render); } }
       catch (e) { toast(cloud.hebrewError(e)); }
     }
+    const fcode = cloud.pendingFriend();
+    if (fcode) {
+      cloud.clearPendingFriend();
+      try { await cloud.acceptFriendLink(fcode); toast('נוספה חברה חדשה ✨'); }
+      catch (e) { toast(cloud.hebrewError(e)); }
+    }
     try { body.replaceChildren(await home(render)); }
-    catch (e) { body.replaceChildren(/permission denied for/i.test(String((e as { message?: string })?.message ?? e)) ? grantsCard(render) : h('p', { class: 'acct__err' }, cloud.hebrewError(e))); }
+    catch (e) { body.replaceChildren(cloud.needsSetup(e) ? grantsCard(render) : h('p', { class: 'acct__err' }, cloud.hebrewError(e))); }
   };
   void render();
   return () => off?.();
@@ -114,7 +120,7 @@ export function gateScreen(el: HTMLElement) {
     let gone = false;
     const enter = async () => {
       if (gone) return; gone = true;
-      if (cloud.pendingInvite()) { go(friendsScreen, 'fade'); return; }
+      if (cloud.pendingInvite() || cloud.pendingFriend()) { go(friendsScreen, 'fade'); return; }
       const { splashScreen } = await import('./splash'); go(splashScreen, 'fade');
     };
     if (lockKind() === 'none' && !bioOn() && !prefs.get<boolean>('lockAsked', false)) {
@@ -161,6 +167,8 @@ function authForms(done: () => void): HTMLElement {
   }
   const invite = cloud.pendingInvite();
   if (invite) void cloud.inviteInfo(invite).then((g) => { if (g) wrap.prepend(h('p', { class: 'acct__invite' }, `${g.icon} הוזמנת לקבוצה "${g.name}". אחרי הכניסה או ההרשמה תצטרפי אליה.`)); }).catch(() => {});
+  const fcode = cloud.pendingFriend();
+  if (fcode) void cloud.friendLinkInfo(fcode).then((p) => { if (p) wrap.prepend(h('p', { class: 'acct__invite' }, `👭 ${p.display_name || p.username} מזמינה אותך להיות חברות. אחרי ההרשמה או הכניסה תהיו מחוברות.`)); }).catch(() => {});
 
   function signIn(): HTMLElement {
     const [a, email] = field('מייל', { type: 'email', dir: 'ltr', autocomplete: 'email' });
@@ -366,8 +374,19 @@ async function home(refresh: () => void): Promise<HTMLElement> {
     li.append(h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'הסרה', title: 'הסרה', onclick: async () => { if (confirmTwice(li)) { await cloud.removeFriend(f.id); refresh(); } } }, '✕'));
     list.append(li);
   }
-  if (!fr.length) list.append(h('li', { class: 'muted' }, 'עוד אין חברות. מוסיפים לפי שם המשתמש שלהן, או שולחים להן קישור הזמנה לקבוצה.'));
-  wrap.append(h('section', { class: 'acct__card' }, h('h2', {}, '👭 חברות ואנשי קשר'), list, addRow, h('div', { class: 'form__actions' }, add), addOut));
+  if (!fr.length) list.append(h('li', { class: 'muted' }, 'עוד אין חברות. שולחים קישור חברות, או מוסיפים לפי שם משתמש.'));
+  const linkBtn = h('button', { class: 'btn btn--gold', type: 'button' }, '🔗 קישור חברות: הוספת חברה חדשה או קיימת');
+  linkBtn.addEventListener('click', async () => {
+    linkBtn.disabled = true;
+    try {
+      const url = await cloud.friendLink();
+      inviteSheet(`הזמנה להיות חברות ב-Miriam's Coloring Books`, url, '👭 קישור חברות',
+        'מי שפותחת את הקישור, עם חשבון קיים או חדש, מתחברת אלייך מיד, בלי חיפוש ובלי אישור. הקישור בתוקף 30 יום.');
+    } catch (e) { if (cloud.needsSetup(e)) sheet('🛠️ השרת צריך עוד הגדרה אחת', grantsCard(() => location.reload())); else toast(cloud.hebrewError(e)); }
+    finally { linkBtn.disabled = false; }
+  });
+  wrap.append(h('section', { class: 'acct__card' }, h('h2', {}, '👭 חברות ואנשי קשר'), list,
+    h('div', { class: 'form__actions' }, linkBtn), addRow, h('div', { class: 'form__actions' }, add), addOut));
 
   // ── groups
   const glist = h('div', { class: 'acct__groups' });
@@ -617,10 +636,10 @@ async function askToShareAlways(book: BookMeta): Promise<void> {
 }
 
 /** The invite link in a sheet: visible, selectable, and with ways to send it that also work inside claude.ai. */
-function inviteSheet(text: string, url: string): void {
+function inviteSheet(text: string, url: string, title = '🔗 קישור הזמנה', note = 'הקישור בתוקף 14 יום. מי שפותחת אותו נרשמת או נכנסת, ומצטרפת לקבוצה.'): void {
   const box = h('input', { class: 'acct__link', type: 'text', readonly: 'true', dir: 'ltr', value: url }) as HTMLInputElement;
   box.addEventListener('focus', () => box.select());
-  const status = h('p', { class: 'muted', role: 'status' }, 'הקישור בתוקף 14 יום. מי שפותחת אותו נרשמת או נכנסת, ומצטרפת לקבוצה.');
+  const status = h('p', { class: 'muted', role: 'status' }, note);
   const copy = h('button', { class: 'btn btn--gold', type: 'button' }, '📋 העתקת הקישור');
   copy.addEventListener('click', async () => {
     let done = false;
@@ -635,7 +654,7 @@ function inviteSheet(text: string, url: string): void {
     sh.addEventListener('click', () => { void navigator.share({ title: text, text, url }).catch(() => {}); });
     btns.append(sh);
   }
-  sheet('🔗 קישור הזמנה', h('div', { class: 'form' }, box, btns, status));
+  sheet(title, h('div', { class: 'form' }, box, btns, status));
 }
 
 /** The server was made without table permissions: show how to fix it, with the code ready to copy. */
@@ -653,7 +672,7 @@ function grantsCard(retry: () => void): HTMLElement {
   const again = h('button', { class: 'btn btn--small', type: 'button', onclick: retry }, '🔄 4. לנסות שוב');
   return h('section', { class: 'acct__card' },
     h('h2', {}, '🛠️ השרת צריך עוד הגדרה אחת'),
-    h('p', {}, 'השרת עוד לא נתן לאפליקציה הרשאה לטבלאות של החברות והקבוצות. זה תיקון חד-פעמי של דקה, ורק בעלת השרת עושה אותו:'),
+    h('p', {}, 'לשרת חסרות הרשאות או חלק חדש (כמו קישורי חברות). זה תיקון חד-פעמי של דקה, ורק בעלת השרת עושה אותו. מותר להריץ את הקוד שוב גם אם כבר הרצת אותו:'),
     h('ol', {}, h('li', {}, 'מעתיקים את הקוד.'), h('li', {}, 'פותחים את Supabase (נפתח עמוד SQL חדש).'),
       h('li', {}, 'מדביקים בתיבה הגדולה ולוחצים Run (או Ctrl+Enter). אמור להופיע "מוכן ✨".'), h('li', {}, 'חוזרים לכאן ולוחצים "לנסות שוב".')),
     h('div', { class: 'acct__btns' }, copy, open, again), status, area);

@@ -343,3 +343,42 @@ do $$ begin
   end if;
 end $$;
 
+
+-- ───────── personal friend links ─────────
+-- A link she sends to anyone: whoever opens it (new or existing account) becomes her friend right away.
+create table if not exists public.friend_links (
+  code text primary key default encode(extensions.gen_random_bytes(9), 'hex'),
+  created_by uuid not null default auth.uid() references public.profiles on delete cascade,
+  expires_at timestamptz not null default now() + interval '30 days',
+  created_at timestamptz not null default now()
+);
+alter table public.friend_links enable row level security;
+drop policy if exists "make own links" on public.friend_links;
+create policy "make own links" on public.friend_links for insert with check (created_by = auth.uid());
+drop policy if exists "see own links" on public.friend_links;
+create policy "see own links" on public.friend_links for select using (created_by = auth.uid());
+grant select, insert on public.friend_links to authenticated;
+
+create or replace function public.friend_link_info(p_code text) returns table (username text, display_name text)
+language sql security definer set search_path = public stable as $$
+  select p.username, p.display_name from friend_links l join profiles p on p.id = l.created_by
+  where l.code = p_code and l.expires_at > now();
+$$;
+grant execute on function public.friend_link_info(text) to anon, authenticated;
+
+create or replace function public.accept_friend_link(p_code text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare who uuid;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  select created_by into who from friend_links where code = p_code and expires_at > now();
+  if who is null then raise exception 'invite expired'; end if;
+  if who = auth.uid() then raise exception 'own friend link'; end if;
+  update friendships set status = 'accepted'
+    where (requester = who and addressee = auth.uid()) or (requester = auth.uid() and addressee = who);
+  if not found then
+    insert into friendships (requester, addressee, status) values (who, auth.uid(), 'accepted');
+  end if;
+  return who;
+end $$;
+grant execute on function public.accept_friend_link(text) to authenticated;

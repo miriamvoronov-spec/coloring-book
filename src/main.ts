@@ -21,8 +21,8 @@ void whenSeeded().then(async () => { const { loadSampleBooks } = await import('.
 import { takeAfterSwitch } from './app/account';
 const afterSwitch = takeAfterSwitch();
 import { needsGate, gateScreen } from './screens/friends';
-import { pendingInvite } from './app/cloud';
-const joinWaiting = !!pendingInvite();
+import { pendingInvite, pendingFriend } from './app/cloud';
+const joinWaiting = !!pendingInvite() || !!pendingFriend();
 if (needsGate()) go(gateScreen, 'fade');
 else if (joinWaiting || afterSwitch === 'friends' || /[#&](join|access_token)=|[?&]code=|^#google$/.test(location.hash + location.search) || location.hash === '#google' || location.hash === '#friends') void import('./screens/friends').then((m) => go(m.friendsScreen, 'fade'));
 else go(splashScreen, 'fade');
