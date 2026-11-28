@@ -71,6 +71,21 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });
+  const doneBtn = h('button', { class: 'pill pill--done', type: 'button', title: 'שומרת הכול ומסמנת שהחוברת גמורה' });
+  const showDone = () => { doneBtn.replaceChildren(h('b', { class: 'pill__emoji', 'aria-hidden': 'true' }, book.finishedAt ? '🏆' : '✅'), h('span', {}, book.finishedAt ? 'סיימתי!' : 'סיימתי')); doneBtn.classList.toggle('is-on', !!book.finishedAt); };
+  showDone();
+  doneBtn.addEventListener('click', async () => {
+    await surface?.engine?.save();
+    const fresh = (await store.book(book.id)) ?? book;
+    if (book.finishedAt) {
+      book = { ...fresh, finishedAt: undefined }; await store.putBook(book); showDone();
+      toast('החוברת חזרה לחוברות שבעבודה. הכול שמור');
+      return;
+    }
+    book = { ...fresh, finishedAt: Date.now(), current: false }; await store.putBook(book); showDone();
+    const r = doneBtn.getBoundingClientRect(); confetti(); sparkle(r.left + r.width / 2, r.top + r.height / 2, 40, 7);
+    toast('כל הכבוד! 🏆 הכול נשמר, והחוברת עברה ל"חוברות שסיימתי"');
+  });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'חזרה למדף', html: icons.back });
   const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'לספרייה', title: 'לספרייה', html: icons.home });
   const host = h('div', { class: 'book__page' });
@@ -84,7 +99,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': 'מקרא צבעים' });
   const main = h('div', { class: 'reader__main' }, frame, prevBtn, nextBtn);
   const root = h('main', { class: 'reader reader--browse' },
-    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, gridBtn, shareBtn, palBtn, refBtn, solutionBtn, modeBtn, homeBtn)),
+    h('header', { class: 'reader__top' }, back, h('div', { class: 'reader__heading' }, title, counter), h('div', { class: 'reader__actions' }, doneBtn, gridBtn, shareBtn, palBtn, refBtn, solutionBtn, modeBtn, homeBtn)),
     main, legend);
   // under the page: only the page's own number→colour legend; every other colour is in the tool bar
   el.append(root);

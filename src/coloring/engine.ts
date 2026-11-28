@@ -113,7 +113,8 @@ export class PageEngine {
     this.lamp.width = Math.round(this.W / 2); this.lamp.height = Math.round(this.H / 2);
     this.lamp.hidden = true;
     if (this.look.paper) paper.style.background = this.look.paper;
-    this.stage.append(paper, this.lines, this.layerBox, this.lamp, this.numbers);
+    // numbers sit under the paint, so colouring covers them like on paper (the lamp lifts them above)
+    this.stage.append(paper, this.lines, this.numbers, this.layerBox, this.lamp);
     this.restack();
     if (this.look.overlay) { this.look.overlay.classList.add('pv__overlay'); this.stage.append(this.look.overlay); }
     this.el.append(this.stage);
@@ -625,7 +626,7 @@ export class PageEngine {
   // ----- lamp -----
   /** Highlight every region of the number that belongs to `hex`. Returns the label, or a reason it can't. */
   setLamp(hex: string | null): { ok: true; value: string } | { ok: false; reason: 'off' | 'no-legend' | 'no-match' | 'not-ready' } {
-    if (!hex) { this.lampValue = null; this.lamp.hidden = true; this.el.classList.remove('pv--lamp'); this.renderNumbers(); return { ok: false, reason: 'off' }; }
+    if (!hex) { this.lampValue = null; this.lamp.hidden = true; this.el.classList.remove('pv--lamp'); this.stage.insertBefore(this.numbers, this.layerBox); this.renderNumbers(); return { ok: false, reason: 'off' }; }
     if (!this.page.legend.length || !this.page.labels.length) return { ok: false, reason: 'no-legend' };
     if (!this.map) this.buildRegions();
     if (!this.map) return { ok: false, reason: 'not-ready' };
@@ -660,6 +661,7 @@ export class PageEngine {
     }
     this.lamp.hidden = false;
     this.el.classList.add('pv--lamp');
+    this.stage.append(this.numbers);
     this.renderNumbers();
     return { ok: true, value };
   }
@@ -674,8 +676,8 @@ export class PageEngine {
     x.fillStyle = this.look.paper ?? '#fffdf8'; x.fillRect(0, 0, c.width, c.height);
     x.globalCompositeOperation = 'multiply';
     if (this.lines.naturalWidth && this.lines.style.visibility !== 'hidden') { x.globalAlpha = Number(this.lines.style.opacity || 1); x.drawImage(this.lines, 0, 0, c.width, c.height); x.globalAlpha = 1; }
+    if (!this.page.numbersInImage) { x.globalCompositeOperation = 'source-over'; drawNumbers(x, this.page.labels, k); }
     this.drawLayers(x, c.width, c.height);
-    if (!this.page.numbersInImage) drawNumbers(x, this.page.labels, k);
     this.look.decorate?.(x, c.width, c.height);
     return c;
   }

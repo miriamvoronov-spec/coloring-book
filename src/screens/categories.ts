@@ -8,7 +8,7 @@ import { h, onLongPress, sheet, toast } from '../ui/dom';
 import { logoMark } from '../ui/logo';
 import { appBar } from '../ui/appbar';
 import { dailyLine, greeting, greetingIcon, settings } from '../app/settings';
-import { shelfScreen, FAV_SHELF, CUR_SHELF } from './shelf';
+import { shelfScreen, FAV_SHELF, CUR_SHELF, DONE_SHELF } from './shelf';
 import { openCabinet } from '../ui/cabinet';
 
 const ICONS = ['✨', '🏰', '🧚', '🦄', '🌸', '🐉', '🌙', '⭐', '🎨', '🍄', '🐚', '🦋', '🌈', '👑', '🪄', '📚'];
@@ -107,7 +107,7 @@ export function categoriesScreen(el: HTMLElement) {
     const [cats, books] = await Promise.all([store.categories(), store.books()]);
     grid.replaceChildren();
     lists.replaceChildren();
-    for (const [v, n] of [[FAV_SHELF, books.filter((b) => b.favorite).length], [CUR_SHELF, books.filter((b) => b.current).length]] as const) {
+    for (const [v, n] of [[FAV_SHELF, books.filter((b) => b.favorite).length], [CUR_SHELF, books.filter((b) => b.current).length], [DONE_SHELF, books.filter((b) => b.finishedAt).length]] as const) {
       const pill = h('button', { class: 'list-pill', type: 'button' }, h('span', { class: 'list-pill__icon', 'aria-hidden': 'true' }, v.icon), h('span', {}, v.name), h('span', { class: 'list-pill__n' }, String(n)));
       pill.addEventListener('click', () => go((r) => shelfScreen(r, v), 'forward'));
       lists.append(pill);

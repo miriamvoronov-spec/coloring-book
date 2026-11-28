@@ -44,7 +44,7 @@ export async function unlockBio(): Promise<boolean> {
   if (!id) return true;
   try {
     const r = await navigator.credentials.get({ publicKey: {
-      challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64(id) }], userVerification: 'required', timeout: 60000,
+      challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64(id), transports: ['internal'] }], userVerification: 'required', timeout: 60000,
     } });
     unlocked = !!r;
   } catch { unlocked = false; }

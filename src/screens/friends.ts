@@ -72,6 +72,21 @@ export function friendsScreen(el: HTMLElement) {
 
 function framedCheck(): boolean { try { return window.top !== window || /claude\.ai|claudeusercontent/.test(location.href); } catch { return true; } }
 
+/** Why fingerprint can't be turned on here, in her words (null = it can). */
+async function bioProblem(): Promise<string | null> {
+  if (framedCheck()) return `בתוך claude.ai הדפדפן לא מאפשר ${bioName()}. פותחים את האפליקציה המותקנת (${cloud.appUrl()}) ומפעילים שם.`;
+  if (!window.isSecureContext || !window.PublicKeyCredential) return `הדפדפן הזה לא תומך ב-${bioName()}. כדאי לפתוח ב-Chrome או ב-Safari.`;
+  if (!(await bioAvailable())) return `לא מצאתי ${bioName()} מוגדר במכשיר. מגדירים קודם טביעת אצבע או נעילת מסך בהגדרות המכשיר, ואז מנסים שוב.`;
+  return null;
+}
+function bioError(e: unknown): string {
+  const n = (e as { name?: string })?.name;
+  if (n === 'NotAllowedError') return 'הזיהוי בוטל או שעבר הזמן. נסי שוב ולגעת בחיישן.';
+  if (n === 'SecurityError') return `הכתובת הזאת לא מאפשרת ${bioName()}. פותחים את האפליקציה המותקנת ומפעילים שם.`;
+  if (n === 'InvalidStateError') return 'כבר רשום זיהוי במכשיר הזה. נסי שוב.';
+  return `לא הצלחתי להפעיל ${bioName()}. צריך שהוא יהיה מוגדר במכשיר.`;
+}
+
 /** Nobody gets into the library without an account: sign up or sign in, then the lock. */
 export function needsGate(): boolean {
   if (!cloud.cloudConfig()) return false;
@@ -250,7 +265,20 @@ function lockSheet(refresh: () => void): void {
     body.replaceChildren(h('p', { class: 'muted' }, 'איך לפתוח את החשבון במכשיר הזה? הבחירה שלך בלבד, ולכל משתמשת יש נעילה משלה.'),
       ...(['pattern', 'pin', 'password', 'none'] as LockKind[]).map((k) => h('button', { class: 'btn' + (k === now ? ' btn--gold' : ''), type: 'button', onclick: () => k === 'none' ? void setLock('none').then(() => { toast('בלי נעילה'); close(); refresh(); }) : enter(k as Exclude<LockKind, 'none'>) },
         { pattern: '⠿ דפוס (כמו בטלפון)', pin: '🔢 קוד מספרים', password: '🔤 סיסמה', none: '🔓 בלי נעילה' }[k])),
-      h('p', { class: 'muted' }, `אפשר להוסיף גם ${bioName()} בכפתור שבכרטיס החשבון.`));
+      bioChoice());
+  };
+  const bioChoice = () => {
+    const btn = h('button', { class: 'btn' + (bioOn() ? ' btn--gold' : ''), type: 'button' }, bioOn() ? `👆 ${bioName()}: פועל (לחיצה מבטלת)` : `👆 ${bioName()}`);
+    const note = h('p', { class: 'acct__err', role: 'status' });
+    btn.addEventListener('click', async () => {
+      if (bioOn()) { disableBio(); toast('בוטל'); choose(); refresh(); return; }
+      note.textContent = '';
+      const why = await bioProblem();
+      if (why) { note.textContent = why; return; }
+      try { await enableBio(''); toast(`מעכשיו החשבון נפתח ב-${bioName()} 👆`); close(); refresh(); }
+      catch (e) { note.textContent = bioError(e); }
+    });
+    return h('div', { class: 'acct__bio' }, h('p', { class: 'muted' }, 'או בלי לזכור כלום:'), btn, note);
   };
   const enter = (k: Exclude<LockKind, 'none'>) => {
     let first = '';
@@ -283,12 +311,12 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   // ── account
   const out = h('button', { class: 'btn btn--small', type: 'button', onclick: async () => { await cloud.signOut(); setTimeout(() => location.reload(), 700); } }, 'יציאה');
   const sec = h('button', { class: 'btn btn--small', type: 'button', onclick: () => securitySheet() }, 'שאלת אבטחה');
-  const bio = h('button', { class: 'btn btn--small', type: 'button', hidden: true }, bioOn() ? `🔓 לבטל ${bioName()}` : `👆 כניסה ב-${bioName()}`);
-  void bioAvailable().then((ok) => { bio.hidden = !ok && !bioOn(); });
+  const bio = h('button', { class: 'btn btn--small', type: 'button' }, bioOn() ? `🔓 לבטל ${bioName()}` : `👆 כניסה ב-${bioName()}`);
   bio.addEventListener('click', async () => {
     if (bioOn()) { disableBio(); toast('בוטל'); refresh(); return; }
+    const why = await bioProblem(); if (why) { toast(why); return; }
     try { await enableBio(mine?.username ?? ''); toast(`מעכשיו החשבון נפתח ב-${bioName()} 👆`); refresh(); }
-    catch { toast(`לא הצלחתי להפעיל. צריך ${bioName()} מוגדר במכשיר, ולפתוח את האפליקציה המותקנת או את הדפדפן (לא מתוך claude.ai)`); }
+    catch (e) { toast(bioError(e)); }
   });
   const mailBox = h('div', { class: 'acct__mail', hidden: true });
   wrap.append(h('section', { class: 'acct__card acct__me' },

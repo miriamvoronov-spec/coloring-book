@@ -16,12 +16,13 @@ import { readerScreen } from './reader';
 const SWATCHES = ['#1f2c5c', '#7a1f2b', '#1f5a45', '#4a2058', '#1d4f5a', '#5a3218', '#8c3a55', '#2f4a22', '#2e3440', '#8a5a14'];
 
 /** Shelves that gather books from every category: favourites and the ones being coloured now. */
-export const VIRTUAL_FAV = '__fav', VIRTUAL_CUR = '__cur';
+export const VIRTUAL_FAV = '__fav', VIRTUAL_CUR = '__cur', VIRTUAL_DONE = '__done';
 export const FAV_SHELF: Category = { id: VIRTUAL_FAV, name: 'חוברות אהובות', icon: '❤️', order: -2 };
 export const CUR_SHELF: Category = { id: VIRTUAL_CUR, name: 'חוברות נוכחיות', icon: '📖', order: -1 };
+export const DONE_SHELF: Category = { id: VIRTUAL_DONE, name: 'חוברות שסיימתי', icon: '🏆', order: 0 };
 
 export function shelfScreen(el: HTMLElement, cat: Category) {
-  const virtual = cat.id === VIRTUAL_FAV || cat.id === VIRTUAL_CUR;
+  const virtual = cat.id === VIRTUAL_FAV || cat.id === VIRTUAL_CUR || cat.id === VIRTUAL_DONE;
   const shelves = h('div', { class: 'shelves' });
   const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf,image/*,.colorbook,.zip', multiple: true, hidden: true });
   const importBtn = h('button', { class: 'btn btn--gold appbar__add', type: 'button', title: 'הוספת חוברת: קובץ PDF, תמונות של הדפים או .colorbook', 'aria-label': 'הוספת חוברת' }, h('span', { class: 'appbar__ico' }, '📥'), h('span', { class: 'appbar__txt' }, ' הוספת חוברת (PDF, תמונות או .colorbook)'));
@@ -54,7 +55,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
 
   const render = async () => {
     const all = await store.books();
-    const books = cat.id === VIRTUAL_FAV ? all.filter((b) => b.favorite) : cat.id === VIRTUAL_CUR ? all.filter((b) => b.current) : all.filter((b) => b.categoryId === cat.id);
+    const books = cat.id === VIRTUAL_FAV ? all.filter((b) => b.favorite) : cat.id === VIRTUAL_CUR ? all.filter((b) => b.current) : cat.id === VIRTUAL_DONE ? all.filter((b) => b.finishedAt) : all.filter((b) => b.categoryId === cat.id);
     shelves.replaceChildren();
     const perShelf = innerWidth < 560 ? 2 : innerWidth < 900 ? 3 : innerWidth < 1300 ? 4 : 5;
     const rows = Math.max(2, Math.ceil(books.length / perShelf));

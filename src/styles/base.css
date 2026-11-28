@@ -1028,3 +1028,4 @@ body:has(.settings) .player { display: none; }
 .lockpat__dot.is-on { fill: var(--gold); }
 /* account and entry screens scroll (a long sign-up form must reach its button on every screen) */
 .friends-screen { flex: 1; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.pill--done.is-on { background: linear-gradient(180deg, #fff1b8, #e7b850 45%, #b07a22); color: var(--ink); box-shadow: 0 0 14px rgba(231,184,80,.55); }

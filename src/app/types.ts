@@ -42,6 +42,8 @@ export interface BookMeta {
   style?: string;
   favorite?: boolean;
   current?: boolean;
+  /** When she pressed "סיימתי" for this book. */
+  finishedAt?: number;
   /** Books made with Claude have a tune of their own unless she turned it off. */
   music?: boolean;
 }
