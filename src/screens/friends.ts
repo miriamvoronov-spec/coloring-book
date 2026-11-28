@@ -10,7 +10,7 @@ import * as cloud from '../app/cloud';
 import { appBar } from '../ui/appbar';
 import { h, sheet, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
-import { bioAvailable, bioOn, bioUnlocked, disableBio, enableBio, unlockBio } from '../app/biolock';
+import { bioAvailable, bioName, bioOn, bioUnlocked, disableBio, enableBio, unlockBio } from '../app/biolock';
 
 const QUESTIONS = ['איך קראו לחיית המחמד הראשונה שלי?', 'באיזו עיר נולדתי?', 'מה שם בית הספר היסודי שלי?', 'מה המאכל שאני הכי אוהבת?', 'איך קוראים לחברה הכי טובה שלי מילדות?'];
 const ICONS = ['💬', '🎨', '👭', '🌸', '🏰', '✨', '📚', '🦋', '💖', '🌙'];
@@ -39,7 +39,7 @@ export function friendsScreen(el: HTMLElement) {
     const s = await cloud.session();
     if (!s) { body.replaceChildren(authForms(render)); return; }
     if (!bioUnlocked()) {
-      const open = h('button', { class: 'btn btn--gold', type: 'button' }, '🔒 פתיחה בטביעת אצבע');
+      const open = h('button', { class: 'btn btn--gold', type: 'button' }, `🔒 פתיחה ב-${bioName()}`);
       open.addEventListener('click', async () => { if (await unlockBio()) void render(); else toast('לא הצלחתי לזהות. אפשר לנסות שוב'); });
       body.replaceChildren(h('section', { class: 'acct__card acct__lock' }, h('h2', {}, 'החשבון נעול'), h('p', { class: 'muted' }, 'פותחים עם טביעת האצבע או נעילת המסך של המכשיר.'), open));
       return;
@@ -166,12 +166,12 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   // ── account
   const out = h('button', { class: 'btn btn--small', type: 'button', onclick: async () => { await cloud.signOut(); refresh(); } }, 'יציאה');
   const sec = h('button', { class: 'btn btn--small', type: 'button', onclick: () => securitySheet() }, 'שאלת אבטחה');
-  const bio = h('button', { class: 'btn btn--small', type: 'button', hidden: true }, bioOn() ? '🔓 לבטל טביעת אצבע' : '👆 כניסה בטביעת אצבע');
+  const bio = h('button', { class: 'btn btn--small', type: 'button', hidden: true }, bioOn() ? `🔓 לבטל ${bioName()}` : `👆 כניסה ב-${bioName()}`);
   void bioAvailable().then((ok) => { bio.hidden = !ok && !bioOn(); });
   bio.addEventListener('click', async () => {
     if (bioOn()) { disableBio(); toast('בוטל'); refresh(); return; }
-    try { await enableBio(mine?.username ?? ''); toast('מעכשיו החשבון נפתח בטביעת אצבע 👆'); refresh(); }
-    catch { toast('לא הצלחתי להפעיל. צריך נעילת מסך עם טביעת אצבע במכשיר'); }
+    try { await enableBio(mine?.username ?? ''); toast(`מעכשיו החשבון נפתח ב-${bioName()} 👆`); refresh(); }
+    catch { toast(`לא הצלחתי להפעיל. צריך ${bioName()} מוגדר במכשיר, ולפתוח את האפליקציה המותקנת או את הדפדפן (לא מתוך claude.ai)`); }
   });
   wrap.append(h('section', { class: 'acct__card acct__me' },
     h('div', {}, h('strong', {}, mine ? nameOf(mine) : ''), ' ', h('span', { class: 'muted', dir: 'ltr' }, mine ? '@' + mine.username : '')),

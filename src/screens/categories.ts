@@ -89,8 +89,8 @@ export function categoriesScreen(el: HTMLElement) {
     const { pdfWizard } = await import('./pdfwizard');
     pdfWizard(fs);
   });
-  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF, תמונות או .colorbook)');
-  const friendsBtn = h('button', { class: 'btn appbar__add', type: 'button', title: 'חברות, קבוצות וחוברות משותפות', onclick: async () => { const { friendsScreen } = await import('./friends'); go(friendsScreen, 'forward'); } }, '👭 חברות וקבוצות');
+  const addPdf = h('button', { class: 'btn btn--gold appbar__add', type: 'button', onclick: () => pick.click(), title: 'הוספת חוברת: קובץ PDF, תמונות של הדפים או .colorbook', 'aria-label': 'הוספת חוברת' }, h('span', { class: 'appbar__ico' }, '📥'), h('span', { class: 'appbar__txt' }, ' הוספת חוברת (PDF, תמונות או .colorbook)'));
+  const friendsBtn = h('button', { class: 'btn appbar__add', type: 'button', title: 'חברות, קבוצות וחוברות משותפות', onclick: async () => { const { friendsScreen } = await import('./friends'); go(friendsScreen, 'forward'); }, 'aria-label': 'חברות וקבוצות' }, h('span', { class: 'appbar__ico' }, '👭'), h('span', { class: 'appbar__txt' }, ' חברות וקבוצות'));
   const [jobs, offJobs] = jobsBox();
   const lists = h('div', { class: 'lists-row' });
   el.append(h('main', { class: 'categories' },

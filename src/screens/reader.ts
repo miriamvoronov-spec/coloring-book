@@ -66,7 +66,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
   const counter = h('span', { class: 'reader__count', 'aria-live': 'polite' });
   const solutionBtn = h('button', { class: 'pill', type: 'button', html: icons.solution }, h('span', {}, 'הצג פתרון'));
   const refBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'חלונית רפרנס צפה: הפתרון או תמונה משלך, עם זום' }, h('span', {}, 'חלונית רפרנס'));
-  const palBtn = h('button', { class: 'pill', type: 'button', title: 'צבעי הדף מקוביות הצבע' }, h('span', {}, '🎨 צבעי הדף'));
+  const palBtn = h('button', { class: 'pill', type: 'button', title: 'צבעי הדף מקוביות הצבע', 'aria-label': 'צבעי הדף' }, h('b', { class: 'pill__emoji', 'aria-hidden': 'true' }, '🎨'), h('span', {}, 'צבעי הדף'));
   const shareBtn = h('button', { class: 'pill', type: 'button', html: icons.share }, h('span', {}, 'שיתוף'));
   const gridBtn = h('button', { class: 'pill', type: 'button', html: icons.grid, title: 'כל הדפים' }, h('span', {}, 'כל הדפים'));
   const modeBtn = h('button', { class: 'pill pill--gold', type: 'button' });

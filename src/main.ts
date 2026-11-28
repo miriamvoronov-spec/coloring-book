@@ -14,6 +14,8 @@ if (!app) throw new Error('#app missing');
 document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';
 applySettings();
+// Ask the browser to keep her library even when space runs low (Safari otherwise clears sites unused for a week).
+try { void navigator.storage?.persist?.(); } catch { /* not offered */ }
 initApp(app);
 void whenSeeded().then(async () => { const { loadSampleBooks } = await import('./app/samples'); await loadSampleBooks(); });
 if (/[#&](join|access_token)=|[?&]code=/.test(location.hash + location.search)) void import('./screens/friends').then((m) => go(m.friendsScreen, 'fade'));

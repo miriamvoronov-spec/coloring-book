@@ -24,7 +24,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
   const virtual = cat.id === VIRTUAL_FAV || cat.id === VIRTUAL_CUR;
   const shelves = h('div', { class: 'shelves' });
   const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.pdf,application/pdf,image/*,.colorbook,.zip', multiple: true, hidden: true });
-  const importBtn = h('button', { class: 'btn btn--gold', type: 'button', title: 'קובץ PDF, או תמונות של הדפים (PNG, JPG)' }, '📥 הוספת חוברת (PDF, תמונות או .colorbook)');
+  const importBtn = h('button', { class: 'btn btn--gold appbar__add', type: 'button', title: 'הוספת חוברת: קובץ PDF, תמונות של הדפים או .colorbook', 'aria-label': 'הוספת חוברת' }, h('span', { class: 'appbar__ico' }, '📥'), h('span', { class: 'appbar__txt' }, ' הוספת חוברת (PDF, תמונות או .colorbook)'));
   importBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
     const files = [...(fileInput.files ?? [])];

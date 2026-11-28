@@ -13,6 +13,14 @@ let unlocked = false;
 export async function bioAvailable(): Promise<boolean> {
   try { return !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
 }
+/** What this device calls its biometric lock, for the button text. */
+export function bioName(): string {
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'Face ID / Touch ID';
+  if (/macintosh/i.test(ua)) return 'Touch ID';
+  if (/windows/i.test(ua)) return 'Windows Hello';
+  return 'טביעת אצבע';
+}
 export const bioOn = (): boolean => !!prefs.get<string>('bioCred', '');
 export const bioUnlocked = (): boolean => unlocked || !bioOn();
 
