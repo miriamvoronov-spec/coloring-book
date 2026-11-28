@@ -932,3 +932,26 @@ body:has(.settings) .player { display: none; }
 
 .acct__mail { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.12); }
 .acct__mail[hidden] { display: none; }
+
+/* ---------- account lock pads ---------- */
+.lockpad { display: grid; justify-items: center; gap: 12px; width: 100%; }
+.lockpat { width: min(260px, 70vw); height: auto; touch-action: none; user-select: none; -webkit-user-select: none; background: rgba(43,26,16,.06); border-radius: 18px; }
+.lockpat__dot { fill: rgba(43,26,16,.28); transition: fill .12s, r .12s; }
+.lockpat__dot.is-on { fill: #b8862b; r: 17px; }
+.lockpat__line { fill: none; stroke: #e7b850; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.lockpat.is-bad .lockpat__dot.is-on, .lockpat.is-bad .lockpat__dot { fill: #b8423a; }
+.lockpin__dots { min-height: 32px; font-size: 1.5rem; letter-spacing: .35em; color: #6b3a1f; }
+.lockpin__dots.is-bad { color: #b8423a; }
+.lockpin__keys { display: grid; grid-template-columns: repeat(3, 68px); gap: 10px; }
+.lockpin__key { height: 60px; border-radius: 50%; border: 1px solid rgba(43,26,16,.2); background: rgba(255,255,255,.7); font-size: 1.4rem; font-weight: 600; color: #2b1d12; }
+.lockpin__key:active { background: #e7b850; }
+.lockpass { width: min(300px, 80vw); min-height: 48px; border-radius: 12px; border: 1px solid rgba(43,26,16,.25); padding: 0 14px; font-size: 1.1rem; }
+.lockpass.is-bad { border-color: #b8423a; }
+.acct__locksheet { display: grid; gap: 10px; justify-items: stretch; }
+.acct__locksheet .lockpad { margin-block: 6px; }
+/* buttons on the cream account cards must read clearly */
+.acct__card .btn:not(.btn--gold) { color: #3a2416; background: rgba(43,26,16,.07); border: 1px solid rgba(43,26,16,.28); }
+.acct__card .btn:not(.btn--gold):active { background: rgba(231,184,80,.35); }
+.lockpat { background: #fbf4e4; box-shadow: inset 0 0 0 1px rgba(43,26,16,.15); }
+.lockpin__dots { background: #fbf4e4; border-radius: 12px; padding: 4px 16px; min-width: 160px; text-align: center; }
+.acct__card .muted { color: #7a6450; }

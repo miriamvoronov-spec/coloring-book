@@ -36,6 +36,7 @@ export async function enableBio(name: string): Promise<void> {
   prefs.set('bioCred', b64(cred.rawId));
   unlocked = true;
 }
+export function markBioOpen(): void { unlocked = true; }
 export function disableBio(): void { prefs.del('bioCred'); }
 
 export async function unlockBio(): Promise<boolean> {

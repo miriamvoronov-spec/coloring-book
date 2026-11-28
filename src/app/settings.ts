@@ -215,7 +215,7 @@ export const LINE_SETS: { id: string; name: string; lines: string[] }[] = [
 
 /** A small sweet line that changes once a day, from the set she chose. */
 export function dailyLine(d = new Date(), set?: string): string {
-  const id = set ?? (localStorage.getItem('mcb.lineSet') ? JSON.parse(localStorage.getItem('mcb.lineSet')!) : 'sweet');
+  const id = set ?? prefs.get<string>('lineSet', 'sweet');
   const lines = (LINE_SETS.find((x) => x.id === id) ?? LINE_SETS[0]).lines;
   const day = Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
   return lines[day % lines.length];

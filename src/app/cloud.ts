@@ -38,6 +38,9 @@ export async function sb(): Promise<SupabaseClient> {
   if (!cfg) throw new Error('עוד לא חיברנו את השרת');
   const { createClient } = await import('@supabase/supabase-js');
   client = createClient(cfg.url, cfg.key, { auth: { persistSession: true, storageKey: 'mcb.cloud.auth' } });
+  // A different account means a different library on this device.
+  const { accountChanged } = await import('./account');
+  client.auth.onAuthStateChange((_ev, s) => { setTimeout(() => accountChanged(s?.user?.id ?? null), 0); });
   return client;
 }
 

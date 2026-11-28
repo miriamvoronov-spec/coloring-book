@@ -10,7 +10,9 @@ import * as cloud from '../app/cloud';
 import { appBar } from '../ui/appbar';
 import { h, sheet, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
-import { bioAvailable, bioName, bioOn, bioUnlocked, disableBio, enableBio, unlockBio } from '../app/biolock';
+import { bioAvailable, bioName, bioOn, bioUnlocked, disableBio, enableBio, markBioOpen, unlockBio } from '../app/biolock';
+import { codeOpen, lockKind, markOpen, setLock, tryCode, waitSeconds, type LockKind } from '../app/applock';
+import { codePad } from '../ui/lockpad';
 
 const QUESTIONS = ['איך קראו לחיית המחמד הראשונה שלי?', 'באיזו עיר נולדתי?', 'מה שם בית הספר היסודי שלי?', 'מה המאכל שאני הכי אוהבת?', 'איך קוראים לחברה הכי טובה שלי מילדות?'];
 const ICONS = ['💬', '🎨', '👭', '🌸', '🏰', '✨', '📚', '🦋', '💖', '🌙'];
@@ -44,12 +46,13 @@ export function friendsScreen(el: HTMLElement) {
       try { await cloud.signInWithGoogle(); return; } catch (e) { console.error(e); }
     }
     if (!s) { body.replaceChildren(authForms(render)); return; }
-    if (!bioUnlocked()) {
-      const open = h('button', { class: 'btn btn--gold', type: 'button' }, `🔒 פתיחה ב-${bioName()}`);
-      open.addEventListener('click', async () => { if (await unlockBio()) void render(); else toast('לא הצלחתי לזהות. אפשר לנסות שוב'); });
-      body.replaceChildren(h('section', { class: 'acct__card acct__lock' }, h('h2', {}, 'החשבון נעול'), h('p', { class: 'muted' }, 'פותחים עם טביעת האצבע או נעילת המסך של המכשיר.'), open));
-      return;
+    let resetAsked = false; try { resetAsked = sessionStorage.getItem('mcb.resetLock') === '1'; } catch { /* fine */ }
+    if (resetAsked) {
+      // She proved who she is by signing in again: forget the old lock.
+      try { sessionStorage.removeItem('mcb.resetLock'); } catch { /* fine */ }
+      await setLock('none'); disableBio(); toast('הנעילה בוטלה. אפשר לבחור חדשה בכרטיס החשבון');
     }
+    if (!bioUnlocked() || !codeOpen()) { body.replaceChildren(lockCard(render)); return; }
     const code = cloud.pendingInvite();
     if (code) {
       cloud.clearPendingInvite();
@@ -164,6 +167,65 @@ function authForms(done: () => void): HTMLElement {
   return wrap;
 }
 
+const LOCK_NAMES: Record<LockKind, string> = { none: 'בלי נעילה', pattern: 'דפוס', pin: 'קוד מספרים', password: 'סיסמה' };
+
+/** The account is locked on this device: pattern / PIN / password, or fingerprint. */
+function lockCard(render: () => void): HTMLElement {
+  const kind = lockKind();
+  const opened = () => { markOpen(); markBioOpen(); render(); };
+  const msg = h('p', { class: 'acct__err', role: 'status' });
+  const card = h('section', { class: 'acct__card acct__lock' }, h('h2', {}, '🔒 החשבון נעול'));
+  if (kind !== 'none') {
+    card.append(h('p', { class: 'muted' }, kind === 'pattern' ? 'מציירים את הדפוס' : kind === 'pin' ? 'מקלידים את הקוד' : 'מקלידים את הסיסמה'));
+    const pad = codePad(kind, async (v) => {
+      const w = waitSeconds();
+      if (w > 0) { msg.textContent = `יותר מדי ניסיונות. אפשר לנסות שוב בעוד ${w} שניות`; pad.reset(true); return; }
+      if (await tryCode(v)) opened();
+      else { pad.reset(true); navigator.vibrate?.([30, 40, 30]); msg.textContent = waitSeconds() > 0 ? `יותר מדי ניסיונות. אפשר לנסות שוב בעוד ${waitSeconds()} שניות` : 'לא נכון. נסי שוב'; }
+    });
+    card.append(pad.el);
+  }
+  if (bioOn()) {
+    const open = h('button', { class: 'btn btn--gold', type: 'button' }, `👆 פתיחה ב-${bioName()}`);
+    open.addEventListener('click', async () => { if (await unlockBio()) opened(); else msg.textContent = 'לא הצלחתי לזהות. אפשר לנסות שוב'; });
+    card.append(open);
+    if (kind === 'none') void unlockBio().then((ok) => { if (ok) opened(); });
+  }
+  const forgot = h('button', { class: 'btn btn--small', type: 'button', onclick: async () => {
+    try { sessionStorage.setItem('mcb.resetLock', '1'); } catch { /* fine */ }
+    toast('נכנסים שוב לחשבון, והנעילה מתבטלת');
+    await cloud.signOut();
+    render();
+  } }, 'שכחתי');
+  card.append(msg, h('p', { class: 'muted' }, 'שכחת? "שכחתי" מוציא מהחשבון. אחרי שנכנסים שוב (במייל וסיסמה או עם גוגל), הנעילה מתבטלת.'), forgot);
+  return card;
+}
+
+/** Choose this account's lock on this device, and enter the new code twice. */
+function lockSheet(refresh: () => void): void {
+  const body = h('div', { class: 'acct__locksheet' });
+  const close = sheet('🔐 נעילת החשבון', body);
+  const choose = () => {
+    const now = lockKind();
+    body.replaceChildren(h('p', { class: 'muted' }, 'איך לפתוח את החשבון במכשיר הזה? הבחירה שלך בלבד, ולכל משתמשת יש נעילה משלה.'),
+      ...(['pattern', 'pin', 'password', 'none'] as LockKind[]).map((k) => h('button', { class: 'btn' + (k === now ? ' btn--gold' : ''), type: 'button', onclick: () => k === 'none' ? void setLock('none').then(() => { toast('בלי נעילה'); close(); refresh(); }) : enter(k as Exclude<LockKind, 'none'>) },
+        { pattern: '⠿ דפוס (כמו בטלפון)', pin: '🔢 קוד מספרים', password: '🔤 סיסמה', none: '🔓 בלי נעילה' }[k])),
+      h('p', { class: 'muted' }, `אפשר להוסיף גם ${bioName()} בכפתור שבכרטיס החשבון.`));
+  };
+  const enter = (k: Exclude<LockKind, 'none'>) => {
+    let first = '';
+    const tip = h('p', { class: 'muted' }, k === 'pattern' ? 'מציירים דפוס דרך 4 נקודות לפחות' : k === 'pin' ? 'מקלידים קוד של 4 ספרות לפחות' : 'מקלידים סיסמה של 4 תווים לפחות');
+    const pad = codePad(k, async (v) => {
+      if (v.length < 4) { tip.textContent = k === 'pattern' ? 'צריך לפחות 4 נקודות. נסי שוב' : 'צריך לפחות 4. נסי שוב'; pad.reset(true); return; }
+      if (!first) { first = v; tip.textContent = 'עוד פעם, לאישור'; pad.reset(); return; }
+      if (v !== first) { first = ''; tip.textContent = 'לא היה אותו דבר. מתחילים מהתחלה'; pad.reset(true); return; }
+      await setLock(k, v); toast(`הנעילה: ${LOCK_NAMES[k]} 🔐`); close(); refresh();
+    });
+    body.replaceChildren(h('strong', {}, LOCK_NAMES[k]), tip, pad.el, h('button', { class: 'btn btn--small', type: 'button', onclick: choose }, 'חזרה'));
+  };
+  choose();
+}
+
 /** Signed in: friends, groups, shared books, account. */
 async function home(refresh: () => void): Promise<HTMLElement> {
   const [mine, fr, gr, shared] = await Promise.all([cloud.me(), cloud.friends(), cloud.groups(), cloud.sharedWithMe().catch(() => [])]);
@@ -182,7 +244,7 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   const mailBox = h('div', { class: 'acct__mail', hidden: true });
   wrap.append(h('section', { class: 'acct__card acct__me' },
     h('div', {}, h('strong', {}, mine ? nameOf(mine) : ''), ' ', h('span', { class: 'muted', dir: 'ltr' }, mine ? '@' + mine.username : '')),
-    h('div', { class: 'acct__btns' }, bio, sec, out),
+    h('div', { class: 'acct__btns' }, h('button', { class: 'btn btn--small', type: 'button', onclick: () => lockSheet(refresh) }, `🔐 נעילה: ${LOCK_NAMES[lockKind()]}`), bio, sec, out),
     mailBox));
   void cloud.mailPrefs().then((m) => {
     if (!m) return;

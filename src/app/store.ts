@@ -3,6 +3,7 @@
  * memory when IndexedDB is unavailable (private window, blocked storage),
  * so the app still works for the session.
  */
+import { dbName, prefPrefix } from './account';
 import type { BookMeta, Category, PageRec, PaintRec } from './types';
 
 type StoreName = 'categories' | 'books' | 'pages' | 'paint' | 'kv';
@@ -16,7 +17,7 @@ function open(): Promise<IDBDatabase | null> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve) => {
     try {
-      const req = indexedDB.open('miriam-coloring-books', 1);
+      const req = indexedDB.open(dbName(), 1);
       req.onupgradeneeded = () => {
         const db = req.result;
         for (const [name, key] of Object.entries(KEYS)) {
@@ -101,15 +102,15 @@ export const store = {
 export const prefs = {
   get<T>(key: string, fallback: T): T {
     try {
-      const v = localStorage.getItem('mcb.' + key);
+      const v = localStorage.getItem(prefPrefix() + key);
       return v == null ? fallback : (JSON.parse(v) as T);
     } catch { return fallback; }
   },
   set(key: string, value: unknown): void {
-    try { localStorage.setItem('mcb.' + key, JSON.stringify(value)); } catch { /* not saved */ }
+    try { localStorage.setItem(prefPrefix() + key, JSON.stringify(value)); } catch { /* not saved */ }
   },
   del(key: string): void {
-    try { localStorage.removeItem('mcb.' + key); } catch { /* nothing to remove */ }
+    try { localStorage.removeItem(prefPrefix() + key); } catch { /* nothing to remove */ }
   },
 };
 
