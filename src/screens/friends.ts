@@ -11,6 +11,8 @@ import { appBar } from '../ui/appbar';
 import { h, sheet, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
 import { storedUserId } from '../app/account';
+import { logoFull } from '../ui/logo';
+const logoEl = (): HTMLElement => { const d = document.createElement('div'); d.innerHTML = logoFull(Math.min(200, Math.round(innerWidth * 0.42))); return d.firstElementChild as HTMLElement; };
 import { bioAvailable, bioName, bioOn, bioUnlocked, disableBio, enableBio, markBioOpen, unlockBio } from '../app/biolock';
 import { codeOpen, lockKind, markOpen, setLock, tryCode, waitSeconds, type LockKind } from '../app/applock';
 import { codePad } from '../ui/lockpad';
@@ -68,6 +70,8 @@ export function friendsScreen(el: HTMLElement) {
   return () => off?.();
 }
 
+function framedCheck(): boolean { try { return window.top !== window || /claude\.ai|claudeusercontent/.test(location.href); } catch { return true; } }
+
 /** Nobody gets into the library without an account: sign up or sign in, then the lock. */
 export function needsGate(): boolean {
   if (!cloud.cloudConfig()) return false;
@@ -78,7 +82,7 @@ export function needsGate(): boolean {
 export function gateScreen(el: HTMLElement) {
   const body = h('div', { class: 'acct gate' });
   el.append(h('main', { class: 'friends-screen gate-screen' },
-    h('header', { class: 'gate__head' }, h('h1', { class: 'gate__title' }, "Miriam's Coloring Books"),
+    h('header', { class: 'gate__head' }, logoEl(),
       h('p', { class: 'gate__sub' }, 'כדי להיכנס לספרייה צריך חשבון. כל חשבון מקבל ספרייה משלו.')), body));
   const render = async () => {
     body.replaceChildren(h('p', { class: 'muted' }, 'רגע…'));
@@ -192,7 +196,8 @@ function authForms(done: () => void): HTMLElement {
   const gout = h('p', { class: 'acct__err', role: 'status' });
   google.addEventListener('click', () => void busy(google, gout, () => cloud.signInWithGoogle()));
   let framed = false; try { framed = window.top !== window || /claude\.ai|claudeusercontent/.test(location.href); } catch { framed = true; }
-  const head = h('div', { class: 'acct__welcome' },
+  const inGate = !!document.querySelector('.gate-screen');
+  const head = h('div', { class: 'acct__welcome', hidden: inGate && !framedCheck() },
     h('h2', {}, 'חשבון אישי'),
     h('p', {}, 'עם חשבון אפשר להוסיף חברות, לפתוח קבוצות, לשתף חוברות ולשלוח ציורים לגלריה. ההרשמה בחינם ולוקחת דקה.'));
   if (framed) head.append(h('p', { class: 'acct__note' }, 'בתוך claude.ai ייתכן שהחיבור לשרת חסום. אם ההרשמה לא עוברת, פותחים את האפליקציה המותקנת:'),

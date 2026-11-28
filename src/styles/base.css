@@ -995,3 +995,34 @@ body:has(.settings) .player { display: none; }
 .gate__head { text-align: center; margin: 8px auto 18px; }
 .gate__title { font-family: var(--font-title, inherit); color: var(--gold, #e6b94f); font-size: clamp(2rem, 6vw, 3.2rem); margin: 0 0 6px; }
 .gate__sub { color: var(--cream, #f4ead8); margin: 0; opacity: .9; }
+
+/* ── Account screens: same warm wood, gold and glow as the welcome screen ── */
+.acct__card { background: linear-gradient(180deg, rgba(255,241,184,.09), rgba(27,15,8,.55)); color: var(--paper);
+  border: 1px solid rgba(231,184,80,.38); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 24px rgba(231,184,80,.10), inset 0 1px 0 rgba(255,241,184,.12); }
+.acct__card h2, .acct__card h3, .acct__welcome h2 { font-family: var(--font-display); font-weight: 400; color: var(--gold); }
+.acct__card h2 { font-size: 1.5rem; }
+.acct__card .muted, .acct__row label, .acct .form label { color: var(--muted); }
+.acct .field, .acct input:not([type=checkbox]):not([type=range]), .acct select { background: rgba(0,0,0,.28); color: var(--paper); border: 1px solid rgba(231,184,80,.32); }
+.acct .field:focus, .acct input:focus, .acct select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(231,184,80,.22); }
+.acct .field::placeholder { color: rgba(251,244,228,.38); }
+.acct select option { background: #2b1a10; color: var(--paper); }
+.acct__err { color: #ffb3a6; }
+.acct__tab { background: rgba(27,15,8,.55); color: var(--gold-hi); border: 1px solid rgba(231,184,80,.45); font-family: var(--font-display); }
+.acct__tab.is-on { background: linear-gradient(180deg, var(--gold-hi), var(--gold) 45%, var(--gold-deep)); color: var(--ink); font-weight: 400; box-shadow: 0 0 16px rgba(231,184,80,.45); }
+.acct__card .btn:not(.btn--gold) { color: var(--gold-hi); background: rgba(255,241,184,.06); border: 1px solid rgba(231,184,80,.4); }
+.acct__card .btn:not(.btn--gold):active { background: rgba(231,184,80,.25); }
+.acct__card .acct__google { background: #fff; color: #3c4043; border: 1px solid #dadce0; }
+.acct__invite { background: rgba(231,184,80,.16); color: var(--gold-hi); border: 1px solid rgba(231,184,80,.4); }
+.acct__mail { border-top-color: rgba(231,184,80,.25); }
+.lockpat { background: rgba(0,0,0,.25); box-shadow: inset 0 0 0 1px rgba(231,184,80,.3); }
+.lockpin__dots { background: rgba(0,0,0,.25); color: var(--gold-hi); }
+.lockpin__key { background: rgba(255,241,184,.08); color: var(--paper); border-color: rgba(231,184,80,.4); }
+.lockpin__key:active { background: var(--gold); color: var(--ink); }
+.lockpass { background: rgba(0,0,0,.28); color: var(--paper); border-color: rgba(231,184,80,.4); }
+.acct__welcome { color: var(--paper); }
+.acct__welcome h2 { font-size: 1.7rem; }
+.gate__head { display: grid; justify-items: center; gap: 6px; }
+.gate__head .logo { animation: rise 1.2s cubic-bezier(.2,.8,.2,1) both; }
+.gate__sub { font-family: var(--font-display); color: var(--gold-hi); font-size: clamp(1.05rem, 2.6vw, 1.4rem); }
+.lockpat__dot { fill: rgba(255,241,184,.38); }
+.lockpat__dot.is-on { fill: var(--gold); }
