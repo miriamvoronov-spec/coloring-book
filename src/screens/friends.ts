@@ -294,7 +294,32 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   }
   if (!shared.length) slist.append(h('li', { class: 'muted' }, 'כשחברה תשתף איתך חוברת, היא תופיע כאן.'));
   wrap.append(h('section', { class: 'acct__card' }, h('h2', {}, '📚 חוברות ששיתפו איתי'), slist));
+
+  // ── gallery of finished pages (needs gallery.sql in Supabase)
+  const gal = h('div', { class: 'gal' }, h('p', { class: 'muted' }, 'רגע…'));
+  const galCard = h('section', { class: 'acct__card' }, h('h2', {}, '🖼️ הגלריה'), gal);
+  wrap.append(galCard);
+  void cloud.gallery().then((arts) => {
+    gal.replaceChildren();
+    if (!arts.length) { gal.append(h('p', { class: 'muted' }, 'כאן יופיעו ציורים גמורים שלך ושל החברות. משתפים ציור מתוך הדף: "שיתוף" ואז "🖼️ לגלריה של החברות".')); return; }
+    for (const a of arts) {
+      const img = h('img', { src: a.url, alt: a.title || 'ציור', loading: 'lazy' });
+      gal.append(h('button', { class: 'gal__tile', type: 'button', onclick: () => artSheet(a, refresh) }, img,
+        h('span', { class: 'gal__who' }, a.mine ? 'שלי' : a.from)));
+    }
+  }).catch(() => { galCard.remove(); });
   return wrap;
+}
+
+/** One finished page, big, with who coloured it. */
+function artSheet(a: cloud.Art, refresh: () => void): void {
+  const when = new Date(a.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
+  const del = h('button', { class: 'btn btn--small', type: 'button' }, 'הסרה מהגלריה');
+  del.addEventListener('click', async () => { if (!confirmTwice(del)) return; await cloud.deleteArt(a); toast('הוסר'); close(); refresh(); });
+  const close = sheet(a.title || 'ציור', h('div', { class: 'gal__big' },
+    h('img', { src: a.url, alt: a.title || 'ציור' }),
+    h('p', {}, h('strong', {}, a.mine ? 'הציור שלי' : `צבעה: ${a.from}`), ' · ', h('span', { class: 'muted' }, when)),
+    ...(a.mine ? [del] : [])));
 }
 
 function confirmTwice(el: HTMLElement): boolean {

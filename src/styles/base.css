@@ -955,3 +955,11 @@ body:has(.settings) .player { display: none; }
 .lockpat { background: #fbf4e4; box-shadow: inset 0 0 0 1px rgba(43,26,16,.15); }
 .lockpin__dots { background: #fbf4e4; border-radius: 12px; padding: 4px 16px; min-width: 160px; text-align: center; }
 .acct__card .muted { color: #7a6450; }
+/* gallery of finished pages */
+.gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.gal > .muted { grid-column: 1 / -1; }
+.gal__tile { position: relative; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #fff; aspect-ratio: 3 / 4; box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+.gal__tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gal__who { position: absolute; inset-inline: 0; bottom: 0; padding: 4px 8px; font-size: .8rem; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.65)); text-align: start; }
+.gal__big { display: grid; gap: 10px; justify-items: center; }
+.gal__big img { max-width: 100%; max-height: 70dvh; border-radius: 10px; background: #fff; }

@@ -234,6 +234,37 @@ export async function shareToCloud(book: BookMeta, to: { users: string[]; groups
   return rec;
 }
 /** Books others shared with me (and in my groups). */
+// ───────── gallery of finished pages ─────────
+export interface Art { id: string; owner: string; title: string; to_group: string | null; path: string; width: number; height: number; created_at: string; url: string; from: string; mine: boolean }
+
+/** Share a finished page: shrunk to at most 1600 px, as JPEG, to all friends (group null) or to one group. */
+export async function postArt(picture: HTMLCanvasElement, title: string, toGroup: string | null): Promise<void> {
+  const c = await sb(); const me = (await session())?.user.id;
+  if (!me) throw new Error('צריך להיכנס לחשבון');
+  const k = Math.min(1, 1600 / Math.max(picture.width, picture.height));
+  const cv = document.createElement('canvas'); cv.width = Math.round(picture.width * k); cv.height = Math.round(picture.height * k);
+  const x = cv.getContext('2d')!; x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(picture, 0, 0, cv.width, cv.height);
+  const blob = await new Promise<Blob>((r, j) => cv.toBlob((b) => b ? r(b) : j(new Error('לא הצלחתי להכין את התמונה')), 'image/jpeg', 0.86));
+  const id = crypto.randomUUID(); const path = `${me}/${id}.jpg`;
+  ok(await c.storage.from('gallery').upload(path, blob, { contentType: 'image/jpeg' }));
+  const r = await c.from('gallery').insert({ id, title: title.slice(0, 120), to_group: toGroup, path, width: cv.width, height: cv.height });
+  if (r.error) { await c.storage.from('gallery').remove([path]); ok(r); }
+}
+export async function gallery(): Promise<Art[]> {
+  const c = await sb(); const me = (await session())?.user.id;
+  const rows = ok(await c.from('gallery').select('*').order('created_at', { ascending: false }).limit(60)) as Omit<Art, 'url' | 'from' | 'mine'>[];
+  if (!rows.length) return [];
+  const signed = ok(await c.storage.from('gallery').createSignedUrls(rows.map((r) => r.path), 3600)) as { path: string | null; signedUrl: string }[];
+  const ids = [...new Set(rows.map((r) => r.owner))];
+  const ppl = ok(await c.from('people').select('id,username,display_name').in('id', ids)) as Person[];
+  return rows.map((r) => { const p = ppl.find((x) => x.id === r.owner); return { ...r, url: signed.find((u) => u.path === r.path)?.signedUrl ?? '', from: p ? p.display_name || p.username : '', mine: r.owner === me }; });
+}
+export async function deleteArt(a: Art): Promise<void> {
+  const c = await sb();
+  ok(await c.from('gallery').delete().eq('id', a.id));
+  await c.storage.from('gallery').remove([a.path]);
+}
+
 export async function sharedWithMe(): Promise<(SharedBook & { from: string })[]> {
   const c = await sb(); const mine = (await session())?.user.id;
   const rows = ok(await c.from('shared_books').select('*').neq('owner', mine).order('created_at', { ascending: false })) as SharedBook[];

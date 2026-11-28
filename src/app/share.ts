@@ -131,5 +131,21 @@ export async function sharePage(page: PageRec, coloured: () => HTMLCanvasElement
   const name = safe(page.title || 'page');
   a.addEventListener('click', async () => { a.disabled = true; status.textContent = await saveFile(`${name}.png`, await toBlob(coloured())); a.disabled = false; });
   b.addEventListener('click', async () => { b.disabled = true; status.textContent = await saveFile(`${name}-blank.png`, await toBlob(await blankPageCanvas(page))); b.disabled = false; });
-  sheet('שיתוף הדף', h('div', { class: 'form' }, h('div', { class: 'form__actions' }, a, b), status));
+  const g = h('button', { class: 'btn', type: 'button' }, '🖼️ לגלריה של החברות');
+  g.addEventListener('click', async () => {
+    const cloud = await import('./cloud');
+    if (!cloud.cloudConfig() || !(await cloud.session())) { status.textContent = 'כדי לשתף בגלריה צריך להיכנס לחשבון, ב"👭 חברות וקבוצות" במסך הספרייה.'; return; }
+    const groups = await cloud.groups().catch(() => []);
+    const pick = h('div', { class: 'form__actions' });
+    const send = async (to: string | null, label: string) => {
+      pick.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = true; });
+      status.textContent = 'שולחת…';
+      try { await cloud.postArt(coloured(), page.title || '', to); status.textContent = ''; toast(`הציור בגלריה של ${label} 🖼️`); close(); }
+      catch (e) { status.textContent = e instanceof Error && !/^[a-z]/i.test(e.message) ? e.message : cloud.hebrewError(e); pick.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = false; }); }
+    };
+    pick.append(h('button', { class: 'btn btn--gold', type: 'button', onclick: () => void send(null, 'כל החברות') }, '👭 כל החברות שלי'),
+      ...groups.map((gr) => h('button', { class: 'btn', type: 'button', onclick: () => void send(gr.id, gr.name) }, `${gr.icon} ${gr.name}`)));
+    g.replaceWith(h('div', { class: 'form' }, h('p', { class: 'muted' }, 'למי להראות את הציור? רק הציור הצבוע שלך נשלח, בגודל מסך.'), pick));
+  });
+  const close = sheet('שיתוף הדף', h('div', { class: 'form' }, h('div', { class: 'form__actions' }, a, b), g, status));
 }

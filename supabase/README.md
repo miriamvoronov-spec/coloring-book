@@ -17,6 +17,13 @@
 2. פותחים את הקובץ `supabase/schema.sql` (בגיבוי: `supabase-schema.sql`), מעתיקים את כל התוכן ומדביקים.
 3. **Run**. אמור להופיע `Success. No rows returned`. מותר להריץ שוב, זה לא מוחק כלום.
 
+## 2א. גלריית הציורים והתראות במייל
+
+באותה דרך (SQL Editor ← New query ← מדביקים ← Run):
+
+* `supabase/gallery.sql`: גלריית הציורים הגמורים.
+* `supabase/notify.sql`: התראות במייל. ההוראות המלאות ב-`supabase/EMAIL.md`.
+
 ## 3. הגדרות כניסה
 
 **Authentication ← URL Configuration**
