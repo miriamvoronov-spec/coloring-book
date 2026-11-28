@@ -1,3 +1,6 @@
+import { storedUserId } from '../app/account';
+import { lockKind } from '../app/applock';
+import { bioOn, bioName } from '../app/biolock';
 import { DEVICE_HE, deviceKind, resetSizes, setSizes, sizes } from '../app/sizes';
 /** Settings: her name (for the greeting), the app's look, sounds and sparkles, about. */
 import { go } from '../app/app';
@@ -12,6 +15,15 @@ import { prefs } from '../app/store';
 import { CHANNELS, addOwnTracks, music, ownTracks, removeOwnTrack, setChannel, setVolume, type Channel } from '../ui/music';
 import { exportLibrary, importLibrary } from '../app/backup';
 import { saveFile } from '../app/runtime';
+
+function lockRow(): HTMLElement {
+  const names: Record<string, string> = { none: 'בלי נעילה', pattern: 'דפוס', pin: 'קוד מספרים', password: 'סיסמה' };
+  const label = () => `עכשיו: ${names[lockKind()]}${bioOn() ? ` + ${bioName()}` : ''}`;
+  const now = h('p', { class: 'muted' }, label());
+  const btn = h('button', { class: 'btn btn--gold', type: 'button' }, '🔐 בחירת נעילה');
+  btn.addEventListener('click', async () => { const { lockSheet } = await import('./friends'); lockSheet(() => { now.textContent = label(); }, () => { now.textContent = label(); }); });
+  return h('div', { class: 'set-card' }, h('p', {}, 'מה האפליקציה מבקשת בכל פתיחה: דפוס כמו בטלפון, קוד מספרים, סיסמה או טביעת אצבע.'), now, btn);
+}
 
 function sizesCard(): HTMLElement {
   const box = h('div', { class: 'set-sizes' });
@@ -300,6 +312,7 @@ export function settingsScreen(el: HTMLElement) {
       section('📲 התקנה במסך הבית', h('p', { class: 'set-label' }, 'אייקון במסך הבית שפותח את האפליקציה בלחיצה אחת.'),
         h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => (await import('../ui/install')).installApp() }, '📲 להתקנה')),
       section('🌟 קרדיטים', credits),
+      ...(storedUserId() ? [section('🔐 נעילת האפליקציה', lockRow())] : []),
       section('🔏 פרטיות', h('p', {}, 'מה נשמר ואיפה: ', h('a', { href: 'https://miriamvoronov-spec.github.io/coloring-book/privacy.html', target: '_blank', rel: 'noopener' }, 'מדיניות הפרטיות'))),
       section('↺ ברירת מחדל', h('p', { class: 'set-label' }, 'מחזיר את העיצוב, הרקע, הגופנים, הלוגו והפינות להתחלה. החוברות והצביעה לא נפגעות.'), resetLook),
       section('אודות', h('p', { class: 'set-about' }, "Miriam's Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.")),

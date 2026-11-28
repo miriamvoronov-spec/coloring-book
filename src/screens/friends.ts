@@ -91,6 +91,7 @@ function bioError(e: unknown): string {
 export function needsGate(): boolean {
   if (!cloud.cloudConfig()) return false;
   if (!storedUserId()) return true;
+  if (lockKind() === 'none' && !bioOn() && !prefs.get<boolean>('lockAsked', false)) return true;
   return !bioUnlocked() || !codeOpen();
 }
 
@@ -109,8 +110,18 @@ export function gateScreen(el: HTMLElement) {
       await setLock('none'); disableBio(); toast('הנעילה בוטלה. אפשר לבחור חדשה בכרטיס החשבון');
     }
     if (!bioUnlocked() || !codeOpen()) { body.replaceChildren(lockCard(render)); return; }
-    const { splashScreen } = await import('./splash');
-    go(splashScreen, 'fade');
+    let gone = false;
+    const enter = async () => { if (gone) return; gone = true; const { splashScreen } = await import('./splash'); go(splashScreen, 'fade'); };
+    if (lockKind() === 'none' && !bioOn() && !prefs.get<boolean>('lockAsked', false)) {
+      // first time in on this device: offer the lock right away (she can choose "בלי נעילה")
+      body.replaceChildren(h('section', { class: 'acct__card acct__lock' }, h('h2', {}, '🔐 איך לנעול את האפליקציה?'),
+        h('p', { class: 'muted' }, 'בכל פתיחה האפליקציה תבקש את מה שתבחרי: דפוס, קוד, סיסמה או טביעת אצבע.'),
+        h('button', { class: 'btn btn--gold', type: 'button', onclick: () => lockSheet(() => {}, () => void enter()) }, 'בחירת נעילה'),
+        h('button', { class: 'btn btn--small', type: 'button', onclick: () => { prefs.set('lockAsked', true); void enter(); } }, 'אחר כך')));
+      lockSheet(() => {}, () => void enter());
+      return;
+    }
+    void enter();
   };
   void render();
 }
@@ -257,9 +268,10 @@ function lockCard(render: () => void): HTMLElement {
 }
 
 /** Choose this account's lock on this device, and enter the new code twice. */
-function lockSheet(refresh: () => void): void {
+export function lockSheet(refresh: () => void, onClose?: () => void): void {
+  prefs.set('lockAsked', true);
   const body = h('div', { class: 'acct__locksheet' });
-  const close = sheet('🔐 נעילת החשבון', body);
+  const close = sheet('🔐 נעילת החשבון', body, onClose);
   const choose = () => {
     const now = lockKind();
     body.replaceChildren(h('p', { class: 'muted' }, 'איך לפתוח את החשבון במכשיר הזה? הבחירה שלך בלבד, ולכל משתמשת יש נעילה משלה.'),
