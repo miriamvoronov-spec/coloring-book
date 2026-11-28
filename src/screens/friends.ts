@@ -9,6 +9,7 @@ import type { BookMeta } from '../app/types';
 import * as cloud from '../app/cloud';
 import { appBar } from '../ui/appbar';
 import { h, sheet, toast } from '../ui/dom';
+import grantsSql from '../../supabase/grants.sql?raw';
 import { categoriesScreen } from './categories';
 import { storedUserId } from '../app/account';
 import { logoFull } from '../ui/logo';
@@ -64,7 +65,7 @@ export function friendsScreen(el: HTMLElement) {
       catch (e) { toast(cloud.hebrewError(e)); }
     }
     try { body.replaceChildren(await home(render)); }
-    catch (e) { body.replaceChildren(h('p', { class: 'acct__err' }, cloud.hebrewError(e))); }
+    catch (e) { body.replaceChildren(/permission denied for/i.test(String((e as { message?: string })?.message ?? e)) ? grantsCard(render) : h('p', { class: 'acct__err' }, cloud.hebrewError(e))); }
   };
   void render();
   return () => off?.();
@@ -111,7 +112,11 @@ export function gateScreen(el: HTMLElement) {
     }
     if (!bioUnlocked() || !codeOpen()) { body.replaceChildren(lockCard(render)); return; }
     let gone = false;
-    const enter = async () => { if (gone) return; gone = true; const { splashScreen } = await import('./splash'); go(splashScreen, 'fade'); };
+    const enter = async () => {
+      if (gone) return; gone = true;
+      if (cloud.pendingInvite()) { go(friendsScreen, 'fade'); return; }
+      const { splashScreen } = await import('./splash'); go(splashScreen, 'fade');
+    };
     if (lockKind() === 'none' && !bioOn() && !prefs.get<boolean>('lockAsked', false)) {
       // first time in on this device: offer the lock right away (she can choose "בלי נעילה")
       body.replaceChildren(h('section', { class: 'acct__card acct__lock' }, h('h2', {}, '🔐 איך לנעול את האפליקציה?'),
@@ -503,13 +508,13 @@ function openGroup(g: cloud.Group, refresh: () => void): void {
 
   const invite = h('button', { class: 'btn btn--small', type: 'button' }, '🔗 קישור הזמנה');
   invite.addEventListener('click', async () => {
+    invite.disabled = true;
     try {
       const url = await cloud.inviteLink(g.id);
       const text = `הזמנה לקבוצה "${g.name}" ב-Miriam's Coloring Books`;
-      if (navigator.share) { try { await navigator.share({ title: text, text, url }); return; } catch { /* closed */ } }
-      await navigator.clipboard?.writeText(url).catch(() => {});
-      toast('הקישור הועתק. אפשר להדביק בוואטסאפ');
+      inviteSheet(text, url);
     } catch (e) { toast(cloud.hebrewError(e)); }
+    finally { invite.disabled = false; }
   });
   const shareBtn = h('button', { class: 'btn btn--small', type: 'button' }, '📚 שיתוף חוברת');
   shareBtn.addEventListener('click', async () => {
@@ -609,4 +614,47 @@ async function askToShareAlways(book: BookMeta): Promise<void> {
   const [fr, gr] = await Promise.all([cloud.friends(), cloud.groups()]);
   if (!fr.some((f) => f.status === 'accepted') && !gr.length) { toast('עוד אין חברות או קבוצות'); go(friendsScreen, 'forward'); return; }
   await askToShare(book);
+}
+
+/** The invite link in a sheet: visible, selectable, and with ways to send it that also work inside claude.ai. */
+function inviteSheet(text: string, url: string): void {
+  const box = h('input', { class: 'acct__link', type: 'text', readonly: 'true', dir: 'ltr', value: url }) as HTMLInputElement;
+  box.addEventListener('focus', () => box.select());
+  const status = h('p', { class: 'muted', role: 'status' }, 'הקישור בתוקף 14 יום. מי שפותחת אותו נרשמת או נכנסת, ומצטרפת לקבוצה.');
+  const copy = h('button', { class: 'btn btn--gold', type: 'button' }, '📋 העתקת הקישור');
+  copy.addEventListener('click', async () => {
+    let done = false;
+    try { await navigator.clipboard.writeText(url); done = true; } catch { /* blocked in a frame */ }
+    if (!done) { box.focus(); box.select(); try { done = document.execCommand('copy'); } catch { /* old way */ } }
+    status.textContent = done ? 'הקישור הועתק ✨ אפשר להדביק בוואטסאפ' : 'סמני את הקישור למעלה והעתיקי אותו';
+  });
+  const wa = h('a', { class: 'btn btn--small', href: `https://wa.me/?text=${encodeURIComponent(text + '\n' + url)}`, target: '_blank', rel: 'noopener' }, '💬 שליחה בוואטסאפ');
+  const btns = h('div', { class: 'acct__btns' }, copy, wa);
+  if (navigator.share) {
+    const sh = h('button', { class: 'btn btn--small', type: 'button' }, '📤 שיתוף');
+    sh.addEventListener('click', () => { void navigator.share({ title: text, text, url }).catch(() => {}); });
+    btns.append(sh);
+  }
+  sheet('🔗 קישור הזמנה', h('div', { class: 'form' }, box, btns, status));
+}
+
+/** The server was made without table permissions: show how to fix it, with the code ready to copy. */
+function grantsCard(retry: () => void): HTMLElement {
+  const status = h('p', { class: 'muted', role: 'status' });
+  const copy = h('button', { class: 'btn btn--gold', type: 'button' }, '📋 1. העתקת הקוד');
+  copy.addEventListener('click', async () => {
+    let done = false;
+    try { await navigator.clipboard.writeText(grantsSql); done = true; } catch { /* blocked in a frame */ }
+    if (!done) { area.focus(); area.select(); try { done = document.execCommand('copy'); } catch { /* old way */ } }
+    status.textContent = done ? 'הקוד הועתק ✨' : 'סמני את כל הקוד בתיבה והעתיקי אותו';
+  });
+  const area = h('textarea', { class: 'acct__sql', readonly: 'true', dir: 'ltr', rows: '6' }, grantsSql) as HTMLTextAreaElement;
+  const open = h('a', { class: 'btn btn--small', href: 'https://supabase.com/dashboard/project/yeapzbqwncxmpkucafli/sql/new', target: '_blank', rel: 'noopener' }, '🔗 2. פתיחת Supabase');
+  const again = h('button', { class: 'btn btn--small', type: 'button', onclick: retry }, '🔄 4. לנסות שוב');
+  return h('section', { class: 'acct__card' },
+    h('h2', {}, '🛠️ השרת צריך עוד הגדרה אחת'),
+    h('p', {}, 'השרת עוד לא נתן לאפליקציה הרשאה לטבלאות של החברות והקבוצות. זה תיקון חד-פעמי של דקה, ורק בעלת השרת עושה אותו:'),
+    h('ol', {}, h('li', {}, 'מעתיקים את הקוד.'), h('li', {}, 'פותחים את Supabase (נפתח עמוד SQL חדש).'),
+      h('li', {}, 'מדביקים בתיבה הגדולה ולוחצים Run (או Ctrl+Enter). אמור להופיע "מוכן ✨".'), h('li', {}, 'חוזרים לכאן ולוחצים "לנסות שוב".')),
+    h('div', { class: 'acct__btns' }, copy, open, again), status, area);
 }

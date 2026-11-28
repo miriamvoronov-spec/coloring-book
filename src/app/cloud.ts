@@ -54,6 +54,7 @@ export function hebrewError(e: unknown): string {
   if (m.includes('rate limit')) return 'יותר מדי ניסיונות. כדאי לחכות כמה דקות';
   if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return 'אין חיבור לשרת. אם זה קישור של claude.ai, החשבונות עובדים באפליקציה המותקנת';
   if (m.includes('invite expired')) return 'קישור ההזמנה לא בתוקף';
+  if (m.includes('permission denied for')) return 'השרת צריך עוד הגדרה אחת (הרשאות לטבלאות). בעלת השרת מריצה את grants.sql ב-Supabase';
   if (m.includes('row-level security')) return 'אין הרשאה לפעולה הזאת';
   if (m.includes('payload too large') || m.includes('exceeded')) return 'הקובץ גדול מדי לשרת';
   return 'משהו השתבש: ' + (e instanceof Error ? e.message : String(m));
@@ -187,13 +188,14 @@ export async function inviteInfo(code: string): Promise<{ group_id: string; name
 export async function joinGroup(code: string): Promise<string> {
   return ok(await (await sb()).rpc('join_group', { p_code: code })) as string;
 }
-/** An invite code that came in the link, kept until she signs in. */
+/** An invite code that came in the link, kept (for every account on the device) until she is signed in and unlocked. */
+const JOIN_KEY = 'mcb.pendingJoin';
 export function pendingInvite(): string | null {
   const m = /[#&]join=([0-9a-f]{6,64})/i.exec(location.hash);
-  if (m) { prefs.set('pendingJoin', m[1]); history.replaceState(null, '', location.href.split('#')[0]); }
-  return prefs.get<string>('pendingJoin', '') || null;
+  if (m) { try { localStorage.setItem(JOIN_KEY, m[1]); } catch { /* fine */ } history.replaceState(null, '', location.href.split('#')[0]); }
+  try { return localStorage.getItem(JOIN_KEY) || null; } catch { return null; }
 }
-export function clearPendingInvite(): void { prefs.del('pendingJoin'); }
+export function clearPendingInvite(): void { try { localStorage.removeItem(JOIN_KEY); } catch { /* fine */ } }
 
 // ───────── chat ─────────
 export async function messages(groupId: string, limit = 200): Promise<Message[]> {

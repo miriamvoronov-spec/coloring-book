@@ -17,6 +17,10 @@
 2. פותחים את הקובץ `supabase/schema.sql` (בגיבוי: `supabase-schema.sql`), מעתיקים את כל התוכן ומדביקים.
 3. **Run**. אמור להופיע `Success. No rows returned`. מותר להריץ שוב, זה לא מוחק כלום.
 
+## 2ב. הרשאות לטבלאות
+
+אם באפליקציה מופיע "permission denied for table…": באותה דרך מריצים את `supabase/grants.sql` (בגיבוי: `supabase-grants.sql`). פרויקטים חדשים ב-Supabase לא נותנים הרשאות לטבלאות חדשות מעצמם. האפליקציה גם מציגה את הקוד עם כפתור העתקה.
+
 ## 2א. גלריית הציורים והתראות במייל
 
 באותה דרך (SQL Editor ← New query ← מדביקים ← Run):

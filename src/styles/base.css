@@ -1056,3 +1056,5 @@ body:has(.settings) .player { display: none; }
   border: 1px solid rgba(231,184,80,.55); background: rgba(27,15,8,.7); color: var(--gold-hi); font-size: 1.5rem; display: grid; place-items: center; cursor: pointer; }
 .fin__x:hover { box-shadow: 0 0 14px rgba(231,184,80,.5); }
 @media (prefers-reduced-motion: reduce) { .fin.is-in .fin__paint, .fin.is-in .fin__brush { animation: none; -webkit-mask-image: none; mask-image: none; } }
+.acct__link, .acct__sql { width: 100%; box-sizing: border-box; font: 13px/1.4 ui-monospace, monospace; padding: 10px; border-radius: 10px; border: 1px solid rgba(214,178,94,.45); background: rgba(0,0,0,.25); color: inherit; }
+.acct__sql { resize: vertical; margin-top: 10px; }
