@@ -1029,3 +1029,30 @@ body:has(.settings) .player { display: none; }
 /* account and entry screens scroll (a long sign-up form must reach its button on every screen) */
 .friends-screen { flex: 1; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .pill--done.is-on { background: linear-gradient(180deg, #fff1b8, #e7b850 45%, #b07a22); color: var(--ink); box-shadow: 0 0 14px rgba(231,184,80,.55); }
+
+/* ── "סיימתי": the finished painting on a real sheet of paper ── */
+.fin { position: fixed; inset: 0; z-index: 900; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 56px 16px 24px;
+  background: radial-gradient(120% 90% at 50% 30%, rgba(74,44,25,.96), rgba(18,10,5,.98)); opacity: 0; transition: opacity .45s ease; }
+.fin.is-in { opacity: 1; }
+.fin__stage { perspective: 1600px; }
+.fin__paper { position: relative; height: min(72dvh, calc((100vw - 32px) * 1.42)); max-width: calc(100vw - 32px); border-radius: 4px; overflow: hidden;
+  background: #fffdf6; box-shadow: 0 30px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.08), 0 0 40px rgba(231,184,80,.18);
+  transform: rotate(-1.6deg) translateY(40px) scale(.92); transition: transform .9s cubic-bezier(.2,.8,.2,1); }
+.fin.is-in .fin__paper { transform: rotate(-1.6deg) translateY(0) scale(1); }
+.fin__paper::after { content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .5;
+  background: radial-gradient(140% 100% at 30% 20%, transparent 55%, rgba(120,90,50,.18)), repeating-linear-gradient(0deg, rgba(0,0,0,.012) 0 2px, transparent 2px 4px); }
+.fin__lines, .fin__paint { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.fin__paint { -webkit-mask-image: linear-gradient(100deg, #000 45%, transparent 55%); mask-image: linear-gradient(100deg, #000 45%, transparent 55%);
+  -webkit-mask-size: 300% 100%; mask-size: 300% 100%; -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+.fin.is-in .fin__paint { animation: finPaint 2.6s .55s cubic-bezier(.45,.1,.3,1) forwards; }
+@keyframes finPaint { to { -webkit-mask-position: 0 0; mask-position: 0 0; } }
+.fin__brush { position: absolute; top: -10%; bottom: -10%; width: 14%; left: -20%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,236,170,.55), transparent); filter: blur(6px); transform: skewX(-10deg); opacity: 0; }
+.fin.is-in .fin__brush { animation: finBrush 2.6s .55s cubic-bezier(.45,.1,.3,1) forwards; }
+@keyframes finBrush { 0% { left: -20%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: 110%; opacity: 0; } }
+.fin__title { margin: 8px 0 0; font-family: var(--font-display); color: var(--gold); font-size: clamp(1.8rem, 5vw, 2.8rem); text-shadow: 0 0 18px rgba(231,184,80,.5); animation: rise 1s 2.2s both; }
+.fin__sub { margin: 0; color: var(--muted); font-size: 1.05rem; animation: rise 1s 2.4s both; }
+.fin__x { position: absolute; top: max(14px, env(safe-area-inset-top)); inset-inline-end: 14px; width: 52px; height: 52px; border-radius: 50%;
+  border: 1px solid rgba(231,184,80,.55); background: rgba(27,15,8,.7); color: var(--gold-hi); font-size: 1.5rem; display: grid; place-items: center; cursor: pointer; }
+.fin__x:hover { box-shadow: 0 0 14px rgba(231,184,80,.5); }
+@media (prefers-reduced-motion: reduce) { .fin.is-in .fin__paint, .fin.is-in .fin__brush { animation: none; -webkit-mask-image: none; mask-image: none; } }

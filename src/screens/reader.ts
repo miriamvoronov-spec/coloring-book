@@ -85,7 +85,29 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     book = { ...fresh, finishedAt: Date.now(), current: false }; await store.putBook(book); showDone();
     const r = doneBtn.getBoundingClientRect(); confetti(); sparkle(r.left + r.width / 2, r.top + r.height / 2, 40, 7);
     toast('כל הכבוד! 🏆 הכול נשמר, והחוברת עברה ל"חוברות שסיימתי"');
+    // the finished page, laid out like a real painted sheet; ✕ goes back to the open book
+    const entry = await finishedEntry();
+    if (entry === null) return;
+    const e = entries[entry];
+    if (e.kind !== 'page') return;
+    const [pg, paint] = await Promise.all([store.page(e.id), store.paint(e.id)]);
+    if (!pg) return;
+    const { showFinished } = await import('../ui/finished');
+    await showFinished(pg, paint?.color ?? null, book.title, () => { void (async () => {
+      if (!browsing) await backToBook();
+      else { spread?.refresh(entry); await spread?.show(spread.spreadOfEntry(entry)); }
+    })(); });
   });
+  /** Which page to show as finished: the one being coloured, else one on the open spread, else the last painted. */
+  async function finishedEntry(): Promise<number | null> {
+    const isPage = (i: number) => entries[i]?.kind === 'page';
+    if (!browsing && isPage(index)) return index;
+    const painted = async (i: number) => { const x = entries[i]; return x?.kind === 'page' && !!(await store.paint(x.id))?.color; };
+    for (const l of spread?.current() ?? []) if (await painted(l.entry)) return l.entry;
+    for (let i = entries.length - 1; i >= 0; i--) if (await painted(i)) return i;
+    const first = entries.findIndex((x) => x.kind === 'page');
+    return first >= 0 ? first : null;
+  }
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'חזרה למדף', html: icons.back });
   const homeBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'לספרייה', title: 'לספרייה', html: icons.home });
   const host = h('div', { class: 'book__page' });
