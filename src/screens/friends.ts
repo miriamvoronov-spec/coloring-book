@@ -10,6 +10,7 @@ import * as cloud from '../app/cloud';
 import { appBar } from '../ui/appbar';
 import { h, sheet, toast } from '../ui/dom';
 import { categoriesScreen } from './categories';
+import { storedUserId } from '../app/account';
 import { bioAvailable, bioName, bioOn, bioUnlocked, disableBio, enableBio, markBioOpen, unlockBio } from '../app/biolock';
 import { codeOpen, lockKind, markOpen, setLock, tryCode, waitSeconds, type LockKind } from '../app/applock';
 import { codePad } from '../ui/lockpad';
@@ -65,6 +66,34 @@ export function friendsScreen(el: HTMLElement) {
   };
   void render();
   return () => off?.();
+}
+
+/** Nobody gets into the library without an account: sign up or sign in, then the lock. */
+export function needsGate(): boolean {
+  if (!cloud.cloudConfig()) return false;
+  if (!storedUserId()) return true;
+  return !bioUnlocked() || !codeOpen();
+}
+
+export function gateScreen(el: HTMLElement) {
+  const body = h('div', { class: 'acct gate' });
+  el.append(h('main', { class: 'friends-screen gate-screen' },
+    h('header', { class: 'gate__head' }, h('h1', { class: 'gate__title' }, "Miriam's Coloring Books"),
+      h('p', { class: 'gate__sub' }, 'כדי להיכנס לספרייה צריך חשבון. כל חשבון מקבל ספרייה משלו.')), body));
+  const render = async () => {
+    body.replaceChildren(h('p', { class: 'muted' }, 'רגע…'));
+    const s = await cloud.session().catch(() => null);
+    if (!s && !storedUserId()) { body.replaceChildren(authForms(render)); return; }
+    let resetAsked = false; try { resetAsked = sessionStorage.getItem('mcb.resetLock') === '1'; } catch { /* fine */ }
+    if (resetAsked) {
+      try { sessionStorage.removeItem('mcb.resetLock'); } catch { /* fine */ }
+      await setLock('none'); disableBio(); toast('הנעילה בוטלה. אפשר לבחור חדשה בכרטיס החשבון');
+    }
+    if (!bioUnlocked() || !codeOpen()) { body.replaceChildren(lockCard(render)); return; }
+    const { splashScreen } = await import('./splash');
+    go(splashScreen, 'fade');
+  };
+  void render();
 }
 
 /** Before the server is connected: where the two codes go. */
@@ -201,7 +230,7 @@ function lockCard(render: () => void): HTMLElement {
     try { sessionStorage.setItem('mcb.resetLock', '1'); } catch { /* fine */ }
     toast('נכנסים שוב לחשבון, והנעילה מתבטלת');
     await cloud.signOut();
-    render();
+    setTimeout(() => location.reload(), 700);
   } }, 'שכחתי');
   card.append(msg, h('p', { class: 'muted' }, 'שכחת? "שכחתי" מוציא מהחשבון. אחרי שנכנסים שוב (במייל וסיסמה או עם גוגל), הנעילה מתבטלת.'), forgot, newUserBtn());
   return card;
@@ -247,7 +276,7 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   const wrap = h('div', { class: 'acct__home' });
 
   // ── account
-  const out = h('button', { class: 'btn btn--small', type: 'button', onclick: async () => { await cloud.signOut(); refresh(); } }, 'יציאה');
+  const out = h('button', { class: 'btn btn--small', type: 'button', onclick: async () => { await cloud.signOut(); setTimeout(() => location.reload(), 700); } }, 'יציאה');
   const sec = h('button', { class: 'btn btn--small', type: 'button', onclick: () => securitySheet() }, 'שאלת אבטחה');
   const bio = h('button', { class: 'btn btn--small', type: 'button', hidden: true }, bioOn() ? `🔓 לבטל ${bioName()}` : `👆 כניסה ב-${bioName()}`);
   void bioAvailable().then((ok) => { bio.hidden = !ok && !bioOn(); });

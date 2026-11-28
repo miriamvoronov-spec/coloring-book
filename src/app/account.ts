@@ -44,7 +44,7 @@ export const dbName = (): string => SPACE === 'default' ? 'miriam-coloring-books
 export const prefPrefix = (): string => SPACE === 'default' ? 'mcb.' : `mcb@${SPACE}.`;
 
 /** Someone signed in or out: if that means a different library, reopen the app in it. */
-export function accountChanged(userId: string | null, then: 'friends' | 'home' = 'friends'): void {
+export function accountChanged(userId: string | null, then: 'friends' | 'home' = 'home'): void {
   if (spaceFor(userId) === SPACE) return;
   try { sessionStorage.setItem('mcb.afterSwitch', then); } catch { /* fine */ }
   location.reload();

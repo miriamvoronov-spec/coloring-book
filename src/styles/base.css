@@ -990,3 +990,8 @@ body:has(.settings) .player { display: none; }
 .acct__tab { min-height: 48px; font-size: 1.02rem; padding: 0 18px; }
 .acct__oauth { margin-top: 14px; text-align: center; }
 .acct__newuser { display: block; margin: 14px auto 0; }
+
+.gate-screen { padding-top: max(28px, env(safe-area-inset-top)); }
+.gate__head { text-align: center; margin: 8px auto 18px; }
+.gate__title { font-family: var(--font-title, inherit); color: var(--gold, #e6b94f); font-size: clamp(2rem, 6vw, 3.2rem); margin: 0 0 6px; }
+.gate__sub { color: var(--cream, #f4ead8); margin: 0; opacity: .9; }
