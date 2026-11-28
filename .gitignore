@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dev-dist/
+.vite/
+*.log
+.DS_Store
+
+# Purchased books must never be committed (the repo is private, but still).
+books/
+output/
+tools/enhance/books/
+tools/enhance/output/
+*.pdf
+*.colorbook
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+tools/enhance/models/
+
+# Local secrets
+.env
+.env.*

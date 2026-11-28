@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2b1a10" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <title>Miriam Coloring Books</title>
+    <style>
+      html, body, #app {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        position: relative !important;
+      }
+      #app > * {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        position: relative !important;
+        padding-bottom: 120px !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+/* שחרור גלילה קבוע למסך ההרשמה והאפליקציה */
+html, body, #app {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+}
+
+#app > * {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+  padding-bottom: 120px !important;
+}
