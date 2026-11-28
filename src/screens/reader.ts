@@ -464,13 +464,34 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     requestAnimationFrame(layout);
   }
 
+  const triedFind = new Set<string>();
   function toggleLamp(): boolean {
     const eng = surface?.engine;
     if (!eng) return false;
     if (lampOn) { eng.setLamp(null); lampOn = false; return false; }
     const r = eng.setLamp(state.color);
     if (r.ok) { lampOn = true; toast(`מודגשים כל האזורים של ${r.value}`); return true; }
-    if (r.reason === 'no-legend') toast('בדף הזה אין מספרים ומקרא להדגשה');
+    if (r.reason === 'no-legend') {
+      const pg = eng.page;
+      if (pg.numbersInImage && pg.legend.length && !pg.labels.length && !triedFind.has(pg.id)) {
+        // a page added before the lamp could read printed numbers: look for them now
+        triedFind.add(pg.id);
+        toast('מחפשת את המספרים בדף… ✨');
+        void (async () => {
+          try {
+            const { detectLabels } = await import('../app/labels');
+            const bmp = await createImageBitmap(pg.image);
+            const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+            c.getContext('2d')!.drawImage(bmp, 0, 0); bmp.close();
+            const found = detectLabels(c, pg.legend.map((l) => l.label));
+            if (!found.length) { toast('לא מצאתי מספרים בדף הזה, אז המנורה לא יכולה להדגיש. הצביעה עובדת כרגיל 🙂'); return; }
+            pg.labels.push(...found);
+            await store.putPage(pg);
+            if (!lampOn && toggleLamp()) toolbar?.update();
+          } catch (e) { console.warn(e); toast('לא מצאתי מספרים בדף הזה'); }
+        })();
+      } else toast(pg.legend.length ? 'לא מצאתי מספרים בדף הזה, אז המנורה לא יכולה להדגיש. הצביעה עובדת כרגיל 🙂' : 'בדף הזה אין מקרא צבעים, אז אין מה להדגיש');
+    }
     else if (r.reason === 'no-match') toast('הצבע הנוכחי לא נמצא במקרא. בחרי צבע מהמקרא למטה');
     else if (r.reason === 'not-ready') { toast('רגע, הדף עוד נטען'); setTimeout(() => { if (!lampOn) { toggleLamp(); toolbar?.update(); } }, 600); }
     return false;

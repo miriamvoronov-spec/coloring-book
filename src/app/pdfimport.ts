@@ -4,11 +4,12 @@
  * so books of 1 GB and more work on a tablet. Each page is rendered,
  * classified (cover, coloring, solution, back), cleaned and stored one by one.
  */
+import { detectLabels } from './labels';
 import { canvasToPalettePng } from './pngpal';
 import { restoreMargins, type MarginMode } from './margins';
 import { store, uid } from './store';
 import { MAX_SIDE } from './importer';
-import type { BookMeta, Category, LegendEntry, PageRec } from './types';
+import type { BookMeta, Category, Label, LegendEntry, PageRec } from './types';
 import { rgbToHex } from './raster';
 
 /* minimal typing of the parts of pdf.js we use */
@@ -238,7 +239,7 @@ async function coloringFromPdf(bookId: string, src: HTMLCanvasElement, margins: 
   ctx.drawImage(src, 0, 0);
   cleanScan(c);
   const keyBelow = legend.length > 0 && h < src.height;
-  const { canvas: art, dx } = await restoreMargins(c, margins, keyBelow ? ['bottom'] : [], signal);
+  const { canvas: art, dx, dy } = await restoreMargins(c, margins, keyBelow ? ['bottom'] : [], signal);
   let out = art;
   if (keyBelow) {
     // the colour squares stay on the page, on clean white paper
@@ -253,7 +254,11 @@ async function coloringFromPdf(bookId: string, src: HTMLCanvasElement, margins: 
     o.putImageData(strip, 0, art.height);
     o.drawImage(art, 0, 0);
   }
-  return { id: uid('p'), bookId, kind: 'coloring', width: out.width, height: out.height, image: canvasToPalettePng(out), labels: [], legend, numbersInImage: true };
+  // where the printed numbers are, so the lamp works on this page too
+  let labels: Label[] = [];
+  // read them on the original scan: the cleaned lines are too bold to tell 8 from B
+  try { labels = detectLabels(src, legend.map((l) => l.label), h, { blur: Math.max(1, src.width / 1400), ink: 232 }).map((l) => ({ ...l, x: l.x + dx, y: l.y + dy })); } catch (e) { console.warn('labels', e); }
+  return { id: uid('p'), bookId, kind: 'coloring', width: out.width, height: out.height, image: canvasToPalettePng(out), labels, legend, numbersInImage: true };
 }
 
 async function coverFromPdf(bookId: string, src: HTMLCanvasElement, kind: 'cover' | 'back'): Promise<PageRec> {
