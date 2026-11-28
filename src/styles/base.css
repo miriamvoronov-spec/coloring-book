@@ -929,3 +929,6 @@ body:has(.settings) .player { display: none; }
 .acct__google { background: #fff; color: #3c4043; border: 1px solid #dadce0; min-width: 240px; font-weight: 600; }
 .acct__g { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 800; color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); }
 .acct__lock { justify-items: center; text-align: center; }
+
+.acct__mail { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.12); }
+.acct__mail[hidden] { display: none; }

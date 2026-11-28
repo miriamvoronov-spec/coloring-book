@@ -69,6 +69,16 @@ export async function me(): Promise<Person | null> {
   const r = await (await sb()).from('people').select('id,username,display_name').eq('id', s.user.id).maybeSingle();
   return (r.data as Person | null) ?? { id: s.user.id, username: String(s.user.user_metadata?.username ?? ''), display_name: String(s.user.user_metadata?.display_name ?? '') };
 }
+/** E-mail notification choices for the signed-in person (only if the e-mail part was set up in Supabase). */
+export async function mailPrefs(): Promise<{ email_notify: boolean; email_chat: boolean } | null> {
+  const s = await session(); if (!s) return null;
+  const r = await (await sb()).from('profiles').select('email_notify,email_chat').eq('id', s.user.id).maybeSingle();
+  return r.error ? null : (r.data as { email_notify: boolean; email_chat: boolean } | null);
+}
+export async function setMailPref(field: 'email_notify' | 'email_chat', on: boolean): Promise<void> {
+  const s = await session(); if (!s) return;
+  ok(await (await sb()).from('profiles').update({ [field]: on }).eq('id', s.user.id));
+}
 export async function usernameFree(u: string): Promise<boolean> {
   return ok(await (await sb()).rpc('username_free', { p_username: u })) as boolean;
 }

@@ -179,9 +179,23 @@ async function home(refresh: () => void): Promise<HTMLElement> {
     try { await enableBio(mine?.username ?? ''); toast(`מעכשיו החשבון נפתח ב-${bioName()} 👆`); refresh(); }
     catch { toast(`לא הצלחתי להפעיל. צריך ${bioName()} מוגדר במכשיר, ולפתוח את האפליקציה המותקנת או את הדפדפן (לא מתוך claude.ai)`); }
   });
+  const mailBox = h('div', { class: 'acct__mail', hidden: true });
   wrap.append(h('section', { class: 'acct__card acct__me' },
     h('div', {}, h('strong', {}, mine ? nameOf(mine) : ''), ' ', h('span', { class: 'muted', dir: 'ltr' }, mine ? '@' + mine.username : '')),
-    h('div', { class: 'acct__btns' }, bio, sec, out)));
+    h('div', { class: 'acct__btns' }, bio, sec, out),
+    mailBox));
+  void cloud.mailPrefs().then((m) => {
+    if (!m) return;
+    const sw = (label: string, on: boolean, f: 'email_notify' | 'email_chat') => {
+      const input = h('input', { type: 'checkbox', class: 'switch__input', checked: on }) as HTMLInputElement;
+      input.addEventListener('change', () => { void cloud.setMailPref(f, input.checked).then(() => toast(input.checked ? 'יישלח מייל 📧' : 'לא יישלח מייל')).catch(() => { input.checked = !input.checked; toast('לא הצלחתי לשמור'); }); });
+      return h('label', { class: 'switch' }, h('span', {}, label), input, h('span', { class: 'switch__track', 'aria-hidden': 'true' }));
+    };
+    mailBox.replaceChildren(h('strong', { class: 'acct__mailtitle' }, '📧 התראות במייל'),
+      sw('בקשות חברות, הוספה לקבוצה וחוברות ששיתפו איתי', m.email_notify, 'email_notify'),
+      sw('הודעות בקבוצות (מייל אחד לחצי שעה לכל היותר)', m.email_chat, 'email_chat'));
+    mailBox.hidden = false;
+  });
 
   // ── friends
   const [addRow, addInp] = field('הוספת חברה לפי שם משתמש', { dir: 'ltr', placeholder: 'dana' });

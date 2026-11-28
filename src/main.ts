@@ -18,7 +18,7 @@ applySettings();
 try { void navigator.storage?.persist?.(); } catch { /* not offered */ }
 initApp(app);
 void whenSeeded().then(async () => { const { loadSampleBooks } = await import('./app/samples'); await loadSampleBooks(); });
-if (/[#&](join|access_token)=|[?&]code=|^#google$/.test(location.hash + location.search) || location.hash === '#google') void import('./screens/friends').then((m) => go(m.friendsScreen, 'fade'));
+if (/[#&](join|access_token)=|[?&]code=|^#google$/.test(location.hash + location.search) || location.hash === '#google' || location.hash === '#friends') void import('./screens/friends').then((m) => go(m.friendsScreen, 'fade'));
 else go(splashScreen, 'fade');
 mountPlayer();
 mountJobsPill();
