@@ -5,40 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2b1a10" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-    <title>Miriam Coloring Books</title>
-    <style>
-      html, body, #app {
-        overflow-y: auto !important;
-        height: auto !important;
-        min-height: 100vh !important;
-        position: relative !important;
-      }
-      #app > * {
-        overflow-y: auto !important;
-        height: auto !important;
-        min-height: 100vh !important;
-        position: relative !important;
-        padding-bottom: 120px !important;
-      }
-    </style>
+    <link rel="apple-touch-icon" href="./icons/icon-512.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Miriam's Books" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Heebo:wght@400;500;600;700&family=Suez+One&family=Bellefair&family=Amatic+SC:wght@700&family=Secular+One&family=Karantina:wght@700&family=Miriam+Libre:wght@700&family=Frank+Ruhl+Libre:wght@700&family=David+Libre:wght@700&family=Varela+Round&family=Rubik+Bubbles&family=Rubik+Doodle+Shadow&family=Rubik+Wet+Paint&family=Rubik+Gemstones&family=Rubik+Moonrocks&family=Rubik+Puddles&family=Rubik+Vinyl&family=Great+Vibes&family=Princess+Sofia&family=Dancing+Script:wght@700&family=Pacifico&family=Cinzel+Decorative:wght@700&family=Lobster&family=Parisienne&family=Mountains+of+Christmas:wght@700&display=swap" />
+    <title>Miriam's Coloring Books</title>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="app" dir="rtl" lang="he"></div>
+    <script type="module" src="/src/main-pwa.ts"></script>
   </body>
 </html>
-/* שחרור גלילה קבוע למסך ההרשמה והאפליקציה */
-html, body, #app {
-  overflow-y: auto !important;
-  height: auto !important;
-  min-height: 100vh !important;
-  position: relative !important;
-}
-
-#app > * {
-  overflow-y: auto !important;
-  height: auto !important;
-  min-height: 100vh !important;
-  position: relative !important;
-  padding-bottom: 120px !important;
-}

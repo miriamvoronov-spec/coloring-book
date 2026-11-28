@@ -23,3 +23,5 @@ tools/enhance/models/
 # Local secrets
 .env
 .env.*
+dist-artifact/
+dist-friends/
