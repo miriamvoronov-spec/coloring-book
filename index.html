@@ -27,3 +27,18 @@
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
+/* שחרור גלילה קבוע למסך ההרשמה והאפליקציה */
+html, body, #app {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+}
+
+#app > * {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+  padding-bottom: 120px !important;
+}
