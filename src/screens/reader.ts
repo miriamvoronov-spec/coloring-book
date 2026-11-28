@@ -1,3 +1,4 @@
+import { sizes } from '../app/sizes';
 /** Inside a book: page flipping, coloring mode, legend, lamp, solution, closing. */
 import { BLEND_HE, type Blend } from '../coloring/layers';
 import { openPalette, closePalette } from '../ui/palette';
@@ -172,6 +173,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     const aspect = surface?.aspect ?? 1 / 1.4;
     let w = aw, hgt = aw / aspect;
     if (hgt > ah) { hgt = ah; w = ah * aspect; }
+    if (sizes().fit === 'width') { w = aw; hgt = ah; }   // fill the screen's width; scroll down the page
     frame.style.width = Math.max(100, w) + 'px';
     frame.style.height = Math.max(140, hgt) + 'px';
     surface?.engine?.layout();
@@ -736,6 +738,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     if (e.key === 'ArrowLeft') void flip(rtl ? 1 : -1);
   };
   addEventListener('keydown', onKey);
+  addEventListener('resize', layout);
   const onHide = () => { void surface?.engine?.save(); };
   addEventListener('pagehide', onHide);
   document.addEventListener('visibilitychange', onHide);
@@ -776,7 +779,7 @@ export function readerScreen(el: HTMLElement, book: BookMeta, cat: Category) {
     void endBookTheme();
     ro.disconnect();
     removeEventListener('toolbar-moved', layout);
-    removeEventListener('keydown', onKey);
+    removeEventListener('keydown', onKey); removeEventListener('resize', layout);
     removeEventListener('pagehide', onHide);
     document.removeEventListener('visibilitychange', onHide);
     toolbar?.destroy();

@@ -1,3 +1,4 @@
+import { sizes } from '../app/sizes';
 /**
  * Browsing a book like a real one: two pages side by side on an old leather
  * binding, parchment pages, a page block whose thickness follows where you
@@ -90,10 +91,10 @@ export class SpreadView {
 
   layout(maxW: number, maxH: number): void {
     // two pages plus the binding around them
-    const ratio = (this.aspect * 2 * 1.0) / 1.0;
-    let ph = maxH * 0.94, pw = ph * this.aspect;
-    if (pw * 2 > maxW * 0.94) { pw = (maxW * 0.94) / 2; ph = pw / this.aspect; }
-    void ratio;
+    // how big the open book appears is her choice for this kind of screen (settings → sizes)
+    const k = sizes().book / 100;
+    let ph = maxH * k, pw = ph * this.aspect;
+    if (pw * 2 > maxW * k) { pw = (maxW * k) / 2; ph = pw / this.aspect; }
     this.tome.style.setProperty('--pw', pw + 'px');
     this.tome.style.setProperty('--ph', ph + 'px');
   }

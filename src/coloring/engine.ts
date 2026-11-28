@@ -6,6 +6,7 @@
 import { History, type Patch } from '../app/history';
 import { binarize, labelRegions, legendLabelFor, regionAt, regionMask, regionsForLabel, autoSolution, rgbToHex, type RegionMap, type Rect } from '../app/raster';
 import { store } from '../app/store';
+import { sizes } from '../app/sizes';
 import type { PageRec } from '../app/types';
 import { drawSegment, type StrokePoint, type ToolName } from './brushes';
 import { activeAfterRemove, compositeOp, cssBlend, layerId, moveIn, nextName, type Blend, type LayerProps } from './layers';
@@ -323,7 +324,8 @@ export class PageEngine {
     const r = this.el.getBoundingClientRect();
     if (!r.width || !r.height) return;
     const prevFit = this.fit;
-    this.fit = Math.min(r.width / this.W, r.height / this.H);
+    const sz = sizes();
+    this.fit = (sz.fit === 'width' ? r.width / this.W : Math.min(r.width / this.W, r.height / this.H)) * (sz.page / 100);
     if (Math.abs(this.s - prevFit) < 1e-6 || this.s < this.fit) this.s = this.fit;
     this.clampView();
     this.apply();

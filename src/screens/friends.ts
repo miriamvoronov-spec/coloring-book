@@ -4,7 +4,7 @@
  * and books others shared with her.
  */
 import { go } from '../app/app';
-import { store } from '../app/store';
+import { prefs, store } from '../app/store';
 import type { BookMeta } from '../app/types';
 import * as cloud from '../app/cloud';
 import { appBar } from '../ui/appbar';
@@ -46,6 +46,7 @@ export function friendsScreen(el: HTMLElement) {
       try { await cloud.signInWithGoogle(); return; } catch (e) { console.error(e); }
     }
     if (!s) { body.replaceChildren(authForms(render)); return; }
+    prefs.set('everSignedIn', true);
     let resetAsked = false; try { resetAsked = sessionStorage.getItem('mcb.resetLock') === '1'; } catch { /* fine */ }
     if (resetAsked) {
       // She proved who she is by signing in again: forget the old lock.
@@ -91,7 +92,7 @@ function authForms(done: () => void): HTMLElement {
     tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('is-on', b.dataset.t === which));
     pane.replaceChildren(which === 'in' ? signIn() : which === 'up' ? signUp() : forgot());
   };
-  for (const [t, l] of [['in', 'כניסה'], ['up', 'הרשמה'], ['forgot', 'שכחתי סיסמה']] as const) {
+  for (const [t, l] of [['up', '✨ הרשמה: חשבון חדש'], ['in', 'כניסה: כבר יש לי חשבון'], ['forgot', 'שכחתי סיסמה']] as const) {
     tabs.append(h('button', { class: 'acct__tab', type: 'button', 'data-t': t, onclick: () => show(t) }, l));
   }
   const invite = cloud.pendingInvite();
@@ -158,12 +159,17 @@ function authForms(done: () => void): HTMLElement {
     }));
     return h('div', { class: 'form' }, a, h('div', { class: 'form__actions' }, ask), step2, out);
   }
-  const google = h('button', { class: 'btn acct__google', type: 'button' }, h('span', { class: 'acct__g', 'aria-hidden': 'true' }, 'G'), ' כניסה עם גוגל');
+  const google = h('button', { class: 'btn acct__google', type: 'button' }, h('span', { class: 'acct__g', 'aria-hidden': 'true' }, 'G'), ' הרשמה או כניסה עם גוגל');
   const gout = h('p', { class: 'acct__err', role: 'status' });
   google.addEventListener('click', () => void busy(google, gout, () => cloud.signInWithGoogle()));
-  wrap.append(h('div', { class: 'acct__card acct__oauth' }, google, gout,
-    h('p', { class: 'muted' }, 'או עם מייל וסיסמה:')), tabs, pane);
-  show('in');
+  let framed = false; try { framed = window.top !== window || /claude\.ai|claudeusercontent/.test(location.href); } catch { framed = true; }
+  const head = h('div', { class: 'acct__welcome' },
+    h('h2', {}, 'חשבון אישי'),
+    h('p', {}, 'עם חשבון אפשר להוסיף חברות, לפתוח קבוצות, לשתף חוברות ולשלוח ציורים לגלריה. ההרשמה בחינם ולוקחת דקה.'));
+  if (framed) head.append(h('p', { class: 'acct__note' }, 'בתוך claude.ai ייתכן שהחיבור לשרת חסום. אם ההרשמה לא עוברת, פותחים את האפליקציה המותקנת:'),
+    h('a', { class: 'btn btn--gold', href: cloud.appUrl() + '#friends', target: '_blank', rel: 'noopener' }, '📲 הרשמה באפליקציה המותקנת'));
+  wrap.append(head, tabs, pane, h('div', { class: 'acct__card acct__oauth' }, h('p', { class: 'muted' }, 'או בלי למלא טופס:'), google, gout));
+  show(prefs.get<boolean>('everSignedIn', false) ? 'in' : 'up');
   return wrap;
 }
 

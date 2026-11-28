@@ -124,26 +124,26 @@ export async function closeBookAnimation(book: BookMeta, fromBack = false, targe
     await anim(stage, [{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
     await anim(m, [{ transform: `translate3d(0,0,0) scale(${k})` }, { transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }], { duration: 380, easing: ease });
     paperFlip();
-    m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: 'translate3d(0,0,0) scale(1)' }], { duration: 650, easing: ease, fill: 'forwards' });
-    await anim(hinge, [{ transform: `rotateY(${-175 * sign}deg)` }, { transform: 'rotateY(0deg)' }], { duration: 650, easing: ease });
+    m.animate([{ transform: `translate3d(${sign * W * 0.5}px,0,0) scale(1)` }, { transform: 'translate3d(0,0,0) scale(1)' }], { duration: 520, easing: ease, fill: 'forwards' });
+    await anim(hinge, [{ transform: `rotateY(${-175 * sign}deg)` }, { transform: 'rotateY(0deg)' }], { duration: 520, easing: ease });
   }
   chime();
   sparkle(innerWidth / 2, innerHeight / 2, 40, 5);
   const startRot = fromBack ? 180 * sign : 0;
   // fade the backdrop so the shelf shows through, then fly home
-  stage.animate([{ background: 'rgba(12,6,2,.8)' }, { background: 'rgba(12,6,2,0)' }], { duration: 700, fill: 'forwards' });
+  stage.animate([{ background: 'rgba(12,6,2,.8)' }, { background: 'rgba(12,6,2,0)' }], { duration: 600, fill: 'forwards' });
   await wait(60);
   const r = target?.() ?? null;
   const tx = r ? r.left + r.width / 2 - innerWidth / 2 : 0;
   const ty = r ? r.top + r.height / 2 - innerHeight / 2 : innerHeight * 0.2;
   const ts = r ? r.height / H : 0.3;
-  b.animate([{ transform: `rotateY(${startRot}deg)` }, { transform: `rotateY(${startRot + 12 * sign}deg) rotateX(-4deg)`, offset: 0.4 }, { transform: `rotateY(${22 * sign}deg)` }], { duration: 800, easing: ease, fill: 'forwards' });
+  b.animate([{ transform: `rotateY(${startRot}deg)` }, { transform: `rotateY(${startRot + 12 * sign}deg) rotateX(-4deg)`, offset: 0.4 }, { transform: `rotateY(${22 * sign}deg)` }], { duration: 650, easing: ease, fill: 'forwards' });
   const trail = window.setInterval(() => { const q = m.getBoundingClientRect(); sparkle(q.left + q.width / 2, q.top + q.height / 2, 6, 2); }, 90);
   await anim(m, [
     { transform: 'translate3d(0,0,0) scale(1)' },
     { transform: `translate3d(${tx * 0.5}px,${ty * 0.5 - 30}px,0) scale(${(1 + ts) / 2})`, offset: 0.5 },
     { transform: `translate3d(${tx}px,${ty}px,0) scale(${ts})`, opacity: r ? 1 : 0 },
-  ], { duration: 800, easing: ease });
+  ], { duration: 650, easing: ease });
   clearInterval(trail);
   if (r) sparkle(r.left + r.width / 2, r.top + r.height / 2, 30, 4);
   await anim(stage, [{ opacity: 1 }, { opacity: 0 }], { duration: 160 });

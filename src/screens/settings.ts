@@ -1,3 +1,4 @@
+import { DEVICE_HE, deviceKind, resetSizes, setSizes, sizes } from '../app/sizes';
 /** Settings: her name (for the greeting), the app's look, sounds and sparkles, about. */
 import { go } from '../app/app';
 import { applySettings, CORNER_STYLES, dailyLine, greeting, greetingIcon, LINE_SETS, saveSettings, settings, THEMES, TITLE_FONTS, SCRIPT_FONTS, BOOK_FONTS } from '../app/settings';
@@ -11,6 +12,30 @@ import { prefs } from '../app/store';
 import { CHANNELS, addOwnTracks, music, ownTracks, removeOwnTrack, setChannel, setVolume, type Channel } from '../ui/music';
 import { exportLibrary, importLibrary } from '../app/backup';
 import { saveFile } from '../app/runtime';
+
+function sizesCard(): HTMLElement {
+  const box = h('div', { class: 'set-sizes' });
+  const draw = () => {
+    const z = sizes();
+    const slider = (label: string, min: number, max: number, v: number, set: (n: number) => void) => {
+      const out = h('span', { class: 'set-sizes__val' }, `${v}%`);
+      const r = h('input', { type: 'range', class: 'slider', min, max, step: 2, value: v, 'aria-label': label }) as HTMLInputElement;
+      r.addEventListener('input', () => { out.textContent = `${r.value}%`; set(Number(r.value)); });
+      return h('label', { class: 'set-sizes__row' }, h('span', {}, label), r, out);
+    };
+    const fit = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'איך הדף ממלא את המסך' },
+      ...([['whole', 'כל הדף נראה'], ['width', 'לרוחב המסך']] as const).map(([k, t]) =>
+        h('button', { class: 'btn btn--small' + (z.fit === k ? ' btn--gold' : ''), type: 'button', role: 'radio', 'aria-checked': String(z.fit === k), onclick: () => { setSizes({ fit: k }); draw(); } }, t)));
+    box.replaceChildren(
+      h('p', { class: 'set-label' }, `המסך הזה: ${DEVICE_HE[deviceKind()]}. לכל סוג מסך (טלפון, טאבלט, מחשב) נשמרים גדלים משלו.`),
+      slider('גודל החוברת הפתוחה', 50, 100, z.book, (n) => setSizes({ book: n })),
+      slider('גודל הדף בזמן הצביעה', 50, 100, z.page, (n) => setSizes({ page: n })),
+      h('div', { class: 'set-sizes__row' }, h('span', {}, 'הדף בצביעה'), fit),
+      h('button', { class: 'btn btn--small', type: 'button', onclick: () => { resetSizes(); draw(); } }, 'חזרה לגודל הרגיל למסך הזה'));
+  };
+  draw();
+  return box;
+}
 
 function section(title: string, ...kids: Node[]): HTMLElement {
   return h('section', { class: 'set-card' }, h('h2', { class: 'set-card__title' }, title), ...kids);
@@ -250,6 +275,7 @@ export function settingsScreen(el: HTMLElement) {
       section('✨ לוגו', logos),
       section('💬 המשפט היומי', h('p', { class: 'set-label' }, 'איזה סוג משפטים יופיע במסך הפתיחה. המשפט מתחלף כל יום.'), lineSet, linePreview),
       section('גופן הכותרות', fonts),
+      section('📏 גודל החוברת והדף', sizesCard()),
       section('📖 פינות מעוגלות בדף', h('p', { class: 'set-label' }, 'באיזה צד של הדף הפינות מעוגלות, כמו חוברת אמיתית'),
         radios('פינות מעוגלות', CORNER_STYLES.map((x) => [x.id, x.name] as [string, string]), prefs.get('corners', 'auto'), (v) => { prefs.set('corners', v); applySettings(); })),
       section('🖍️ כלי הצביעה בתפריט', h('p', { class: 'set-label' }, 'סמני אילו כלים יופיעו בתפריט הכלים בזמן הצביעה'), toolChoices()),
