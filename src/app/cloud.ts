@@ -17,9 +17,12 @@ export interface SharedBook { id: string; owner: string; title: string; cover_co
 const PART = 45 * 1024 * 1024; // the free plan takes files up to 50 MB
 
 const env = import.meta.env as Record<string, string | undefined>;
+/** Miriam's own Supabase project. The publishable key is public by design; access is guarded by the row rules in supabase/schema.sql. */
+const DEFAULT_URL = 'https://yeapzbqwncxmpkucafli.supabase.co';
+const DEFAULT_KEY = 'sb_publishable_BnGJ07fksSG7o8SKd0MJkQ_vobNNJya';
 export function cloudConfig(): { url: string; key: string } | null {
-  const url = prefs.get<string>('cloudUrl', '') || env.VITE_SUPABASE_URL || '';
-  const key = prefs.get<string>('cloudKey', '') || env.VITE_SUPABASE_KEY || '';
+  const url = prefs.get<string>('cloudUrl', '') || env.VITE_SUPABASE_URL || DEFAULT_URL;
+  const key = prefs.get<string>('cloudKey', '') || env.VITE_SUPABASE_KEY || DEFAULT_KEY;
   return url && key ? { url, key } : null;
 }
 export function setCloudConfig(url: string, key: string): void {
@@ -80,6 +83,9 @@ export async function signIn(email: string, password: string): Promise<void> {
   ok(await (await sb()).auth.signInWithPassword({ email: email.trim(), password }));
 }
 export async function signInWithGoogle(): Promise<void> {
+  // Google refuses to sign in inside the claude.ai frame, so go through the installable site there.
+  let framed = false; try { framed = window.top !== window.self; } catch { framed = true; }
+  if (framed || /claude\.ai|claudeusercontent/.test(location.href)) { window.open(appUrl() + '#google', '_blank', 'noopener'); return; }
   ok(await (await sb()).auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href.split('#')[0] } }));
 }
 export async function signOut(): Promise<void> { await (await sb()).auth.signOut(); }

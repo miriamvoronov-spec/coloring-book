@@ -37,6 +37,12 @@ export function friendsScreen(el: HTMLElement) {
     body.replaceChildren(h('p', { class: 'muted' }, 'רגע…'));
     if (!cloud.cloudConfig()) { body.replaceChildren(connectForm(render)); return; }
     const s = await cloud.session();
+    if (!s && location.hash === '#google') {
+      // Came here from the claude.ai copy to sign in with Google.
+      history.replaceState(null, '', location.pathname + location.search);
+      body.replaceChildren(h('p', { class: 'muted' }, 'עוברים לגוגל…'));
+      try { await cloud.signInWithGoogle(); return; } catch (e) { console.error(e); }
+    }
     if (!s) { body.replaceChildren(authForms(render)); return; }
     if (!bioUnlocked()) {
       const open = h('button', { class: 'btn btn--gold', type: 'button' }, `🔒 פתיחה ב-${bioName()}`);
