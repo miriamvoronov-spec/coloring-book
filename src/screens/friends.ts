@@ -203,7 +203,7 @@ function lockCard(render: () => void): HTMLElement {
     await cloud.signOut();
     render();
   } }, 'שכחתי');
-  card.append(msg, h('p', { class: 'muted' }, 'שכחת? "שכחתי" מוציא מהחשבון. אחרי שנכנסים שוב (במייל וסיסמה או עם גוגל), הנעילה מתבטלת.'), forgot);
+  card.append(msg, h('p', { class: 'muted' }, 'שכחת? "שכחתי" מוציא מהחשבון. אחרי שנכנסים שוב (במייל וסיסמה או עם גוגל), הנעילה מתבטלת.'), forgot, newUserBtn());
   return card;
 }
 
@@ -232,6 +232,15 @@ function lockSheet(refresh: () => void): void {
   choose();
 }
 
+/** Open a brand-new account on this device: leaves this one (its library stays saved) and shows the sign-up form. */
+function newUserBtn(): HTMLElement {
+  return h('button', { class: 'btn btn--gold acct__newuser', type: 'button', onclick: async () => {
+    try { sessionStorage.setItem('mcb.afterSwitch', 'friends'); } catch { /* fine */ }
+    await cloud.signOut();
+    setTimeout(() => location.reload(), 700);
+  } }, '➕ משתמשת חדשה (הרשמה)');
+}
+
 /** Signed in: friends, groups, shared books, account. */
 async function home(refresh: () => void): Promise<HTMLElement> {
   const [mine, fr, gr, shared] = await Promise.all([cloud.me(), cloud.friends(), cloud.groups(), cloud.sharedWithMe().catch(() => [])]);
@@ -251,7 +260,7 @@ async function home(refresh: () => void): Promise<HTMLElement> {
   wrap.append(h('section', { class: 'acct__card acct__me' },
     h('div', {}, h('strong', {}, mine ? nameOf(mine) : ''), ' ', h('span', { class: 'muted', dir: 'ltr' }, mine ? '@' + mine.username : '')),
     h('div', { class: 'acct__btns' }, h('button', { class: 'btn btn--small', type: 'button', onclick: () => lockSheet(refresh) }, `🔐 נעילה: ${LOCK_NAMES[lockKind()]}`), bio, sec, out),
-    mailBox));
+    mailBox, newUserBtn()));
   void cloud.mailPrefs().then((m) => {
     if (!m) return;
     const sw = (label: string, on: boolean, f: 'email_notify' | 'email_chat') => {

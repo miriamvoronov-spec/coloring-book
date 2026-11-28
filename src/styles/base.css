@@ -989,3 +989,4 @@ body:has(.settings) .player { display: none; }
 .acct__welcome .acct__note { font-size: .92rem; opacity: .85; }
 .acct__tab { min-height: 48px; font-size: 1.02rem; padding: 0 18px; }
 .acct__oauth { margin-top: 14px; text-align: center; }
+.acct__newuser { display: block; margin: 14px auto 0; }
