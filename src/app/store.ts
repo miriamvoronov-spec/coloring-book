@@ -87,6 +87,7 @@ export const store = {
 
   page: (id: string) => get<PageRec>('pages', id),
   putPage: (p: PageRec) => put('pages', p),
+  async deletePage(id: string) { await del('pages', id); await del('paint', id); },
 
   paint: (pageId: string) => get<PaintRec>('paint', pageId),
   putPaint: (p: PaintRec) => put('paint', p),

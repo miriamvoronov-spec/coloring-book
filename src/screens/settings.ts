@@ -274,6 +274,7 @@ export function settingsScreen(el: HTMLElement) {
       section('📲 התקנה במסך הבית', h('p', { class: 'set-label' }, 'אייקון במסך הבית שפותח את האפליקציה בלחיצה אחת.'),
         h('button', { class: 'btn btn--gold', type: 'button', onclick: async () => (await import('../ui/install')).installApp() }, '📲 להתקנה')),
       section('🌟 קרדיטים', credits),
+      section('🔏 פרטיות', h('p', {}, 'מה נשמר ואיפה: ', h('a', { href: 'https://miriamvoronov-spec.github.io/coloring-book/privacy.html', target: '_blank', rel: 'noopener' }, 'מדיניות הפרטיות'))),
       section('↺ ברירת מחדל', h('p', { class: 'set-label' }, 'מחזיר את העיצוב, הרקע, הגופנים, הלוגו והפינות להתחלה. החוברות והצביעה לא נפגעות.'), resetLook),
       section('אודות', h('p', { class: 'set-about' }, "Miriam's Coloring Books. החוברות והצביעה נשמרות רק במכשיר הזה.")),
     )));

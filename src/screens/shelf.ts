@@ -117,6 +117,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
     const share = h('button', { class: 'btn', type: 'button' }, 'שיתוף כקובץ');
     const shareF = h('button', { class: 'btn', type: 'button' }, '👭 שיתוף עם חברות');
     const del = h('button', { class: 'btn btn--danger', type: 'button' }, 'מחיקה');
+    const pagesBtn = h('button', { class: 'btn', type: 'button', onclick: async () => { close(); const { bookPagesSheet } = await import('../ui/bookpages'); await bookPagesSheet(b, () => void refresh()); } }, '📑 דפים ופתרונות');
     const body = h('div', { class: 'form' },
       h('label', { for: 'book-name' }, 'שם החוברת'), name,
       h('label', {}, 'צבע כריכה'), sw,
@@ -126,7 +127,7 @@ export function shelfScreen(el: HTMLElement, cat: Category) {
         h('label', { class: 'check' }, fav, h('span', {}, '❤️ ברשימת החוברות האהובות')),
         h('label', { class: 'check' }, cur, h('span', {}, '📖 ברשימת החוברות הנוכחיות')),
         b.madeWithClaude ? h('label', { class: 'check' }, tune, h('span', {}, '🎵 מנגינה משלה כשהחוברת פתוחה')) : null),
-      h('div', { class: 'form__actions' }, save, shareF, share, del));
+      h('div', { class: 'form__actions' }, save, pagesBtn, shareF, share, del));
     const close = sheet('עריכת חוברת', body);
     save.addEventListener('click', async () => {
       await store.putBook({ ...b, title: name.value.trim() || b.title, coverColor: color, direction: dirSel.value === 'ltr' ? 'ltr' : 'rtl', categoryId: catSel.value || b.categoryId, favorite: fav.checked, current: cur.checked, ...(b.madeWithClaude ? { music: tune.checked } : {}) });

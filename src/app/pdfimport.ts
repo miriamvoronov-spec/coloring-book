@@ -260,6 +260,15 @@ async function coverFromPdf(bookId: string, src: HTMLCanvasElement, kind: 'cover
   return { id: uid('p'), bookId, kind, width: src.width, height: src.height, image: await toBlob(src, 'image/jpeg', 0.9), labels: [], legend: [], numbersInImage: true };
 }
 
+/** One picture (a photo or scan of a page) → a page of this book, cleaned like a PDF page. */
+export async function pageFromPicture(bookId: string, file: Blob, kind: 'coloring' | 'cover' | 'back'): Promise<PageRec> {
+  const doc = imagesAsDoc([new File([file], 'p.png', { type: file.type })]);
+  try {
+    const c = await renderPage(doc, 1, kind === 'coloring' ? 2800 : 1600);
+    return kind === 'coloring' ? await coloringFromPdf(bookId, c, 'off') : await coverFromPdf(bookId, c, kind);
+  } finally { await doc.destroy(); }
+}
+
 /** Average colour of the cover's edge, used for the spine on the shelf. */
 function edgeColor(c: HTMLCanvasElement): string {
   const t = document.createElement('canvas'); t.width = 16; t.height = 24;
