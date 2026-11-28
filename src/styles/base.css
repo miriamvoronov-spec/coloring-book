@@ -1026,3 +1026,5 @@ body:has(.settings) .player { display: none; }
 .gate__sub { font-family: var(--font-display); color: var(--gold-hi); font-size: clamp(1.05rem, 2.6vw, 1.4rem); }
 .lockpat__dot { fill: rgba(255,241,184,.38); }
 .lockpat__dot.is-on { fill: var(--gold); }
+/* account and entry screens scroll (a long sign-up form must reach its button on every screen) */
+.friends-screen { min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
